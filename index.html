@@ -1,0 +1,2862 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>多科目模擬考練習｜Google Sheet + Firebase</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+      --main:#2563eb; --ok:#16a34a; --bad:#dc2626; --line:#e5e7eb;
+      --warn:#f59e0b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:920px;margin:0 auto;padding:20px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 22px rgba(15,23,42,.06);margin-bottom:16px}
+    h1{font-size:24px;margin:0 0 8px}
+    h2{font-size:18px;margin:0 0 10px}
+    .muted{color:var(--muted);font-size:14px;line-height:1.6}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    input,select{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px;background:white;color:var(--text)}
+    input[type="number"]{width:110px}
+    #countInput{width:130px;cursor:pointer;appearance:auto;-webkit-appearance:menulist}
+    #subjectInput{min-width:220px;cursor:pointer;appearance:auto;-webkit-appearance:menulist}
+    .subjectInfo{margin-top:12px;padding:11px 13px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;line-height:1.65}
+    .subjectInfo b{color:#1e40af}
+    button{border:0;border-radius:12px;padding:10px 14px;font-size:15px;cursor:pointer;background:var(--main);color:white;font-weight:700}
+    button.secondary{background:#111827}
+    button.ghost{background:#eef2ff;color:#1e40af}
+    button.warn{background:var(--warn);color:#111827}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .pill{display:inline-flex;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#1e40af;font-size:13px;font-weight:700}
+    .qtitle{font-size:18px;line-height:1.7;font-weight:750;white-space:pre-wrap}
+    .option{display:block;width:100%;text-align:left;background:white;color:var(--text);border:1px solid var(--line);padding:13px 14px;border-radius:14px;margin:10px 0;font-weight:600}
+    .option:hover{border-color:#93c5fd;background:#f8fbff}
+    .option.selected{border-color:var(--main);background:#eff6ff}
+    .option.correct{border-color:var(--ok);background:#ecfdf5;color:#065f46}
+    .option.wrong{border-color:var(--bad);background:#fef2f2;color:#991b1b}
+    .result{font-weight:800;font-size:18px;margin-top:12px}
+    .ok{color:var(--ok)} .bad{color:var(--bad)}
+    .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:8px}
+    .bar>div{height:100%;background:var(--main);width:0%}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .stat{padding:12px;border-radius:14px;background:#f9fafb;border:1px solid var(--line);text-align:center}
+    .stat b{display:block;font-size:22px;margin-bottom:4px}
+    .hidden{display:none}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}
+    th{background:#f9fafb}
+    .small{font-size:13px}
+    .summaryBox{margin-top:14px;padding:12px;border-radius:14px;background:#f9fafb;border:1px solid var(--line);line-height:1.7}
+    .passBox{color:#065f46;background:#ecfdf5;border:1px solid #bbf7d0}
+    .failBox{color:#991b1b;background:#fef2f2;border:1px solid #fecaca}
+    .wrongCard{border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px;margin:12px 0}
+    .wrongCard h3{font-size:16px;margin:0 0 8px;line-height:1.6}
+    .answerLine{margin:8px 0;line-height:1.7}
+    .optionList{margin-top:8px;padding-left:0;list-style:none}
+    .optionList li{padding:7px 9px;border-radius:10px;margin:6px 0;background:#f9fafb;border:1px solid var(--line)}
+    .optionList li.correctOpt{background:#ecfdf5;border-color:#86efac;color:#065f46;font-weight:700}
+    .optionList li.wrongOpt{background:#fef2f2;border-color:#fca5a5;color:#991b1b;font-weight:700}
+    .scopeFilter{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#f9fafb}
+    .scopeHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+    .scopeActions{display:flex;gap:8px;flex-wrap:wrap}
+    .scopeActions button{padding:8px 10px;font-size:13px}
+    .scopeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .scopeItem{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:white;line-height:1.4;font-size:14px;cursor:pointer}
+    .scopeItem input{width:auto;margin:0;padding:0;flex:0 0 auto}
+    .scopeItem span:nth-child(2){min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .scopeCount{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap;flex:0 0 auto}
+    .titleRow{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .themeToggle{white-space:nowrap}
+    .authStatus{padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:#f9fafb;line-height:1.6;font-size:14px;font-weight:700;margin-bottom:12px}
+    .authStatus.loginOk{background:#ecfdf5;border-color:#86efac;color:#065f46}
+    .authStatus.guest{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+    .authStatus.error{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
+    .authGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .authGrid label{font-size:14px;font-weight:700;line-height:1.7}
+    .authGrid input{width:100%;margin-top:4px}
+    .registerPanel{margin-top:12px;padding:12px;border-radius:16px;background:#f9fafb;border:1px solid var(--line)}
+    .registerPanel summary{cursor:pointer;font-weight:800;color:#1e40af;list-style:none}
+    .registerPanel summary::-webkit-details-marker{display:none}
+    .registerPanel summary:before{content:'＋';display:inline-block;margin-right:6px;font-weight:900}
+    .registerPanel[open] summary:before{content:'－'}
+    .configBox{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+    code{background:#f3f4f6;border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+
+
+    .topFollowBar{display:flex;justify-content:flex-end;margin-bottom:10px}
+    .fbFollowLink{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#1e40af;text-decoration:none;font-size:13px;font-weight:900;border:1px solid #bfdbfe}
+    .fbFollowLink:hover{background:#dbeafe;border-color:#93c5fd}
+    .memberStatsBox{margin:0 0 14px;padding:12px;border-radius:16px;background:#f8fbff;border:1px solid #bfdbfe}
+    .memberStatsTitle{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;font-weight:900;color:#1e40af}
+    .memberStatGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .memberStat{padding:11px;border-radius:14px;background:#fff;border:1px solid var(--line);text-align:center}
+    .memberStat b{display:block;font-size:22px;margin-bottom:2px;color:var(--main)}
+    .memberStat span{font-size:13px;color:var(--muted);font-weight:700}
+    .memberStatsHint{margin-top:8px;line-height:1.6}
+    .memberStatsActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .memberStatsActions button{padding:8px 10px;font-size:13px}
+    .scopeProgressPanel,
+    .practicedQuestionPanel{margin-top:12px;padding:13px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+    .scopeProgressHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+    .scopeProgressTitle{font-weight:900;color:#1e40af}
+    .scopeProgressRate{font-size:24px;font-weight:900;color:var(--main);white-space:nowrap}
+    .scopeProgressMeta{margin-top:5px;line-height:1.6}
+    .scopeProgressBar{height:12px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:10px}
+    .scopeProgressBar>div{height:100%;width:0%;background:var(--main);transition:width .25s ease}
+    .practicedQuestionHeader{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+    .practicedQuestionTitle{font-weight:900;color:#1e40af}
+    .questionNumberList{display:flex;flex-wrap:wrap;gap:8px;max-height:250px;overflow:auto;padding:2px}
+    .questionNumberChip{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:7px 10px;border-radius:999px;background:#eef2ff;color:#1e40af;border:1px solid #bfdbfe;font-size:13px;font-weight:900}
+    .scopeEmptyState{padding:10px;border-radius:12px;background:#f9fafb;border:1px dashed var(--line);color:var(--muted);line-height:1.6}
+    .leaderboardControls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+    .leaderboardNote{margin-top:8px}
+    .leaderboardTableWrap{overflow-x:auto;margin-top:12px}
+    .leaderboardTable{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+    .leaderboardTable th,
+    .leaderboardTable td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:middle}
+    .leaderboardTable th{background:#f9fafb;color:var(--muted);font-size:13px}
+    .rankBadge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:999px;background:#eef2ff;color:#1e40af;font-weight:900}
+    .rankBadge.top1{background:#fef3c7;color:#92400e}
+    .rankBadge.top2{background:#f3f4f6;color:#374151}
+    .rankBadge.top3{background:#ffedd5;color:#9a3412}
+    .leaderName{font-weight:900}
+    .leaderMeta{font-size:12px;color:var(--muted);margin-top:2px}
+    .myRankBox{margin-top:12px;padding:14px;border-radius:16px;background:#fff7ed;border:1px solid #fed7aa}
+    .myRankTitle{font-size:14px;font-weight:900;color:#9a3412;margin-bottom:8px}
+    .myRankLine{display:flex;gap:10px;align-items:center;flex-wrap:wrap;line-height:1.7}
+    .myRankName{font-weight:900}
+    .myRankStats{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .myRankStat{display:inline-flex;gap:4px;align-items:center;padding:5px 9px;border-radius:999px;background:#ffffff;border:1px solid var(--line);font-size:13px;font-weight:800}
+    .top30Title{margin:16px 0 8px;font-weight:900;color:var(--text)}
+    tr.currentUserRow{background:#fff7ed}
+
+    html[data-theme="dark"]{
+      --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af;
+      --main:#60a5fa; --ok:#4ade80; --bad:#f87171; --line:#334155; --warn:#fbbf24;
+    }
+    html[data-theme="dark"] body{background:var(--bg);color:var(--text)}
+    html[data-theme="dark"] .card,
+    html[data-theme="dark"] .wrongCard{background:var(--card);border-color:var(--line);box-shadow:0 8px 22px rgba(0,0,0,.28)}
+    html[data-theme="dark"] input,
+    html[data-theme="dark"] select{background:#0b1220;color:var(--text);border-color:var(--line)}
+    html[data-theme="dark"] button.secondary{background:#374151;color:#f9fafb}
+    html[data-theme="dark"] button.ghost{background:#1e3a8a;color:#dbeafe}
+    html[data-theme="dark"] .pill{background:#1e3a8a;color:#dbeafe}
+    html[data-theme="dark"] .bar{background:#334155}
+    html[data-theme="dark"] .option{background:#0b1220;color:var(--text);border-color:var(--line)}
+    html[data-theme="dark"] .option:hover{border-color:#60a5fa;background:#172554}
+    html[data-theme="dark"] .option.selected{border-color:#60a5fa;background:#1e3a8a;color:#dbeafe}
+    html[data-theme="dark"] .option.correct{border-color:#22c55e;background:#052e16;color:#bbf7d0}
+    html[data-theme="dark"] .option.wrong{border-color:#ef4444;background:#450a0a;color:#fecaca}
+    html[data-theme="dark"] .stat,
+    html[data-theme="dark"] th,
+    html[data-theme="dark"] .summaryBox,
+    html[data-theme="dark"] .optionList li{background:#0b1220;border-color:var(--line)}
+    html[data-theme="dark"] td,
+    html[data-theme="dark"] th{border-bottom-color:var(--line)}
+    html[data-theme="dark"] .passBox{color:#bbf7d0;background:#052e16;border-color:#166534}
+    html[data-theme="dark"] .failBox{color:#fecaca;background:#450a0a;border-color:#991b1b}
+    html[data-theme="dark"] .optionList li.correctOpt{background:#052e16;border-color:#22c55e;color:#bbf7d0}
+    html[data-theme="dark"] .optionList li.wrongOpt{background:#450a0a;border-color:#ef4444;color:#fecaca}
+    html[data-theme="dark"] .scopeFilter{background:#0b1220;border-color:var(--line)}
+    html[data-theme="dark"] .scopeItem{background:#111827;border-color:var(--line)}
+    html[data-theme="dark"] .registerPanel{background:#0b1220;border-color:var(--line)}
+    html[data-theme="dark"] .registerPanel summary{color:#dbeafe}
+    html[data-theme="dark"] .authStatus.loginOk{background:#052e16;border-color:#22c55e;color:#bbf7d0}
+    html[data-theme="dark"] .authStatus.guest{background:#451a03;border-color:#92400e;color:#fed7aa}
+    html[data-theme="dark"] .authStatus.error{background:#450a0a;border-color:#ef4444;color:#fecaca}
+    html[data-theme="dark"] .configBox{background:#451a03;border-color:#92400e;color:#fed7aa}
+    html[data-theme="dark"] code{background:#0b1220;border-color:var(--line)}
+
+
+    html[data-theme="dark"] .fbFollowLink{background:#1e3a8a;color:#dbeafe;border-color:#2563eb}
+    html[data-theme="dark"] .fbFollowLink:hover{background:#172554;border-color:#60a5fa}
+    html[data-theme="dark"] .memberStatsBox{background:#0b1220;border-color:#2563eb}
+    html[data-theme="dark"] .memberStatsTitle{color:#dbeafe}
+    html[data-theme="dark"] .memberStat{background:#111827;border-color:var(--line)}
+    html[data-theme="dark"] .subjectInfo{background:#172554;border-color:#2563eb}
+    html[data-theme="dark"] .subjectInfo b{color:#dbeafe}
+    html[data-theme="dark"] .scopeProgressPanel,
+    html[data-theme="dark"] .practicedQuestionPanel{background:#111827;border-color:var(--line)}
+    html[data-theme="dark"] .scopeProgressTitle,
+    html[data-theme="dark"] .practicedQuestionTitle{color:#dbeafe}
+    html[data-theme="dark"] .scopeProgressBar{background:#334155}
+    html[data-theme="dark"] .questionNumberChip{background:#1e3a8a;color:#dbeafe;border-color:#2563eb}
+    html[data-theme="dark"] .scopeEmptyState{background:#0b1220;border-color:var(--line)}
+    html[data-theme="dark"] .leaderboardTable th{background:#0b1220;color:var(--muted)}
+    html[data-theme="dark"] .leaderboardTable th,
+    html[data-theme="dark"] .leaderboardTable td{border-bottom-color:var(--line)}
+    html[data-theme="dark"] .rankBadge{background:#1e3a8a;color:#dbeafe}
+    html[data-theme="dark"] .rankBadge.top1{background:#78350f;color:#fde68a}
+    html[data-theme="dark"] .rankBadge.top2{background:#374151;color:#e5e7eb}
+    html[data-theme="dark"] .rankBadge.top3{background:#7c2d12;color:#fed7aa}
+    html[data-theme="dark"] .myRankBox{background:#451a03;border-color:#92400e}
+    html[data-theme="dark"] .myRankTitle{color:#fed7aa}
+    html[data-theme="dark"] .myRankStat{background:#111827;border-color:var(--line)}
+    html[data-theme="dark"] tr.currentUserRow{background:#1e293b}
+
+    @media(max-width:650px){
+      .wrap{padding:12px}
+      .grid{grid-template-columns:repeat(2,1fr)}
+      h1{font-size:21px}
+      .qtitle{font-size:17px}
+      button,input,select{width:100%}
+      .titleRow{flex-direction:column}
+      .themeToggle{width:100%}
+      .scopeHeader{flex-direction:column}
+      .scopeActions{width:100%}
+      .scopeActions button{width:calc(50% - 4px)}
+      .scopeGrid{grid-template-columns:1fr}
+      .scopeItem input{width:auto}
+      .authGrid{grid-template-columns:1fr}
+      .memberStatGrid{grid-template-columns:1fr}
+      .memberStatsTitle{flex-direction:column}
+      .memberStatsActions{width:100%;justify-content:flex-start}
+      .memberStatsActions button{width:100%}
+      .scopeProgressHeader{flex-direction:column}
+      .practicedQuestionHeader{align-items:flex-start;flex-direction:column}
+      .topFollowBar{justify-content:flex-start}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="topFollowBar">
+      <a class="fbFollowLink" href="https://www.facebook.com/profile.php?id=61574384431225" target="_blank" rel="noopener noreferrer">👍 追蹤 FB｜雲橫介工程師</a>
+    </div>
+    <div class="titleRow">
+      <h1 id="appTitle">多科目模擬考練習｜Google Sheet + Firebase</h1>
+      <button class="ghost themeToggle" id="themeToggleBtn" type="button">🌙 夜間模式</button>
+    </div>
+    <div class="muted">
+      題庫來源：Google Sheet。題庫或模擬考系統如有問題，歡迎透過 FB 私訊回報，謝謝。<br>
+      喜歡的話，也可以按上方連結追蹤 FB、按讚分享；LINE 貼圖搜尋「胖蟹」，讓胖蟹貼圖為你發聲。
+    </div>
+  </div>
+
+  <div id="firebaseConfigNotice" class="card configBox hidden">
+    <h2>Firebase 尚未設定</h2>
+    <div class="small">
+      請先到程式碼最上方的 <code>firebaseConfig</code> 貼上你的 Firebase Web App 設定。未設定前仍可訪客練習，但會員登入與雲端錯題紀錄不會啟用。
+    </div>
+  </div>
+
+  <div id="memberBox" class="card">
+    <h2>會員錯題紀錄</h2>
+    <div id="authStatus" class="authStatus guest">Firebase 初始化中...</div>
+    <div class="authGrid">
+      <label>使用者帳號
+        <input id="loginUserInput" type="text" placeholder="例如：cloud001" autocomplete="username">
+      </label>
+      <label>密碼
+        <input id="loginPassInput" type="password" placeholder="請輸入密碼" autocomplete="current-password">
+      </label>
+      <label>顯示名稱 / 暱稱
+        <input id="registerDisplayInput" type="text" placeholder="註冊時可填，例如：雲橫介">
+      </label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="loginBtn" type="button">登入並啟用紀錄</button>
+      <button class="ghost" id="registerBtn" type="button">建立帳號並登入</button>
+      <button class="ghost" id="googleLoginBtn" type="button">Google 登入</button>
+      <button class="secondary" id="logoutBtn" type="button" disabled>登出</button>
+      <button class="ghost" id="historyWrongBtn" type="button">錯題內容複習</button>
+      <button class="ghost" id="leaderboardBtn" type="button">查看排行榜</button>
+      <button class="warn" id="clearPracticeHistoryBtn" type="button">清除已練習紀錄</button>
+      <button class="warn" id="clearWrongStatsBtn" type="button">刪除錯題統計</button>
+    </div>
+    <div class="authHint muted small" style="margin-top:10px">
+      未登入就是訪客模式，可以練習但不會記錄雲端錯題與練習歷史。登入後，已練習題號仍集中保存在 Firestore 單一文件，但題目 Key 會加入科目識別；不同科目的題號、錯題與排行榜彼此分開。一般模擬考只排除目前科目已練過的題目。
+    </div>
+  </div>
+
+
+  <div id="leaderboardBox" class="card hidden">
+    <h2 id="leaderboardTitle">累積積分排行榜</h2>
+    <p class="muted small leaderboardNote">
+      排行榜會依目前選擇的科目分開統計。每次測驗至少 10 題才會加分，並依答對比例、題數與本次分數加權計算。
+    </p>
+    <div class="leaderboardControls">
+      <button class="ghost" id="reloadLeaderboardBtn" type="button">重新整理排行榜</button>
+      <button class="secondary" id="hideLeaderboardBtn" type="button">收合排行榜</button>
+    </div>
+    <div id="leaderboardTable" class="leaderboardTableWrap muted small">尚未載入排行榜。</div>
+  </div>
+
+  <div id="setup" class="card">
+    <h2>考前設定</h2>
+    <div id="memberStudyStatsBox" class="memberStatsBox hidden">
+      <div class="memberStatsTitle">
+        <span>學員學習狀態</span>
+        <div class="memberStatsActions">
+          <button class="ghost" id="showScopeProgressBtn" type="button">顯示範圍進度</button>
+          <button class="ghost" id="showPracticedNumbersBtn" type="button">查看已練題號</button>
+          <button class="ghost" id="refreshMemberStatsBtn" type="button">重新整理狀態</button>
+        </div>
+      </div>
+      <div class="memberStatGrid">
+        <div class="memberStat"><b id="practicedCountText">0</b><span>已練習題目</span></div>
+        <div class="memberStat"><b id="activeWrongCountText">0</b><span>目前錯題</span></div>
+        <div class="memberStat"><b id="masteredWrongCountText">0</b><span>已掌握錯題</span></div>
+      </div>
+      <div id="memberStatsHint" class="memberStatsHint muted small">登入後會自動讀取你的練習狀態。</div>
+
+      <div id="selectedScopeProgressBox" class="scopeProgressPanel hidden">
+        <div class="scopeProgressHeader">
+          <div>
+            <div class="scopeProgressTitle">目前勾選範圍的練習進度</div>
+            <div id="scopeProgressMeta" class="scopeProgressMeta muted small">正在計算...</div>
+          </div>
+          <div id="scopeProgressRateText" class="scopeProgressRate">0%</div>
+        </div>
+        <div class="scopeProgressBar" aria-label="目前勾選範圍練習進度">
+          <div id="scopeProgressBarFill"></div>
+        </div>
+      </div>
+
+      <div id="practicedQuestionListBox" class="practicedQuestionPanel hidden">
+        <div class="practicedQuestionHeader">
+          <div>
+            <div class="practicedQuestionTitle">目前勾選範圍內已練習題號</div>
+            <div id="practicedQuestionSummary" class="muted small">正在整理題號...</div>
+          </div>
+        </div>
+        <div id="practicedQuestionNumberList" class="questionNumberList"></div>
+      </div>
+    </div>
+    <div class="row">
+      <label>科目 / Google Sheet 分頁
+        <select id="subjectInput" aria-label="選擇科目或 Google Sheet 分頁"></select>
+      </label>
+      <label>題數
+        <select id="countInput" aria-label="選擇題數"></select>
+      </label>
+      <label>模式
+        <select id="modeInput">
+          <option value="instant">練習模式：每題立即看答案</option>
+          <option value="exam">考試模式：最後才看結果</option>
+        </select>
+      </label>
+      <button id="startBtn">開始模擬考</button>
+      <button class="ghost" id="reloadBtn">重新讀取目前科目</button>
+    </div>
+    <div id="subjectInfo" class="subjectInfo muted small">正在準備科目清單...</div>
+
+    <div id="scopeFilterBox" class="scopeFilter hidden">
+      <div class="scopeHeader">
+        <div>
+          <b>選擇練習範圍</b>
+          <div id="scopeSummary" class="muted small">預設全選，可取消不想練的範圍。</div>
+        </div>
+        <div class="scopeActions">
+          <button class="ghost" id="selectAllScopesBtn" type="button">全選</button>
+          <button class="ghost" id="clearScopesBtn" type="button">清除</button>
+        </div>
+      </div>
+      <div id="scopeList" class="scopeGrid"></div>
+    </div>
+
+    <p id="loadMsg" class="muted">正在讀取題庫...</p>
+    <p class="muted small">可在 <code>config.js</code> 的 <code>googleSheet.subjects</code> 新增科目。每個科目可使用同一份試算表的不同 gid，也可指定不同 sheetId。</p>
+  </div>
+
+  <div id="quiz" class="card hidden">
+    <div class="row" style="justify-content:space-between">
+      <span class="pill" id="progressText">第 1 / 20 題</span>
+      <span class="pill" id="scoreText">目前答對：0</span>
+    </div>
+    <div class="bar"><div id="progressBar"></div></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+    <div id="questionText" class="qtitle"></div>
+    <div id="options"></div>
+    <div id="feedback" class="muted"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="submitBtn">確認答案</button>
+      <button class="secondary" id="nextBtn" disabled>下一題</button>
+    </div>
+  </div>
+
+  <div id="finish" class="card hidden">
+    <h2>測驗結果</h2>
+    <div id="finalStatus" class="summaryBox"></div>
+    <p id="finalSummary" class="muted"></p>
+    <div class="grid">
+      <div class="stat"><b id="finalScore">0</b>得分</div>
+      <div class="stat"><b id="finalTotal">100</b>總分</div>
+      <div class="stat"><b id="finalCorrect">0</b>答對</div>
+      <div class="stat"><b id="finalWrong">0</b>答錯</div>
+      <div class="stat"><b id="finalRate">0%</b>正確率</div>
+      <div class="stat"><b id="finalPoint">0</b>每題分數</div>
+    </div>
+    <div id="weakPoint" class="summaryBox"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="againBtn">再考一次</button>
+      <button class="ghost" id="reviewBtn">查看本次錯題解析</button>
+      <button class="secondary" id="practiceWrongBtn">只練本次錯題</button>
+      <button class="ghost" id="historyWrongBtnFinish" type="button">錯題內容複習</button>
+      <button class="ghost" id="leaderboardBtnFinish" type="button">查看排行榜</button>
+      <button class="warn" id="clearPracticeHistoryBtnFinish" type="button">清除已練習紀錄</button>
+      <button class="warn" id="clearWrongStatsBtnFinish" type="button">刪除錯題統計</button>
+    </div>
+  </div>
+
+  <div id="review" class="card hidden">
+    <h2>錯題複習與預習</h2>
+    <p class="muted small">這裡會列出你本次答錯的題目、你的答案、正確答案與解析。登入後，下次可按「錯題內容複習」練歷史錯題。</p>
+    <div id="reviewTable"></div>
+  </div>
+</div>
+
+<!-- 可選的外部設定檔：與 index.html 放在同一層；若未提供，會自動使用下方內建預設值。 -->
+<script src="./config.js"></script>
+<script src="./firebase-config.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+// ===== 1) 可獨立運作，也支援外部 config.js / firebase-config.js 覆寫 =====
+const DEFAULT_APP_CONFIG = Object.freeze({
+  app: {
+    title: "多科目模擬考練習"
+  },
+  auth: {
+    emailDomain: "ipas-exam.local"
+  },
+  googleSheet: {
+    sheetId: "1EEBoG6cWlhsnrkstmQakv2ZNJ7TymplYewcX30E3Khw",
+    gid: "0",
+    defaultSubjectId: "ipas-basic",
+    subjects: [
+      {
+        id: "ipas-basic",
+        name: "AI 應用規劃師初級",
+        gid: "0",
+        description: "原始題庫分頁；保留舊版會員練習與錯題紀錄相容性。",
+        legacyKeyMode: true
+      }
+      // 新增範例：
+      // {id:"social", name:"社會", gid:"123456789"},
+      // {id:"history", name:"歷史", sheetName:"歷史"}
+    ]
+  },
+  exam: {
+    totalScore: 100,
+    passScore: 70,
+    defaultQuestionCount: 20,
+    questionCountOptions: [10,20,30,40,50,60,70,80,90,100]
+  }
+});
+
+const DEFAULT_FIREBASE_CONFIG = Object.freeze({
+  apiKey: "AIzaSyChsmSHNElQYVUNSiblN6LiYKbScP5EpkY",
+  authDomain: "ips-ai-application-basic-exam.firebaseapp.com",
+  projectId: "ips-ai-application-basic-exam",
+  storageBucket: "ips-ai-application-basic-exam.firebasestorage.app",
+  messagingSenderId: "1096961993447",
+  appId: "1:1096961993447:web:9d4633a21476f192f31042",
+  measurementId: "G-JW9645CDJP"
+});
+
+const EXTERNAL_APP_CONFIG = window.APP_CONFIG || {};
+const APP_CONFIG = {
+  ...DEFAULT_APP_CONFIG,
+  ...EXTERNAL_APP_CONFIG,
+  app: {...DEFAULT_APP_CONFIG.app, ...(EXTERNAL_APP_CONFIG.app || {})},
+  auth: {...DEFAULT_APP_CONFIG.auth, ...(EXTERNAL_APP_CONFIG.auth || {})},
+  googleSheet: {...DEFAULT_APP_CONFIG.googleSheet, ...(EXTERNAL_APP_CONFIG.googleSheet || {})},
+  exam: {...DEFAULT_APP_CONFIG.exam, ...(EXTERNAL_APP_CONFIG.exam || {})}
+};
+
+const firebaseConfig = {
+  ...DEFAULT_FIREBASE_CONFIG,
+  ...(window.FIREBASE_CONFIG || {})
+};
+
+// 使用者輸入 userName 時，底層會轉成 userName@設定網域，該網域不需要真的存在。
+const BASE_APP_TITLE = String(APP_CONFIG.app?.title || "多科目模擬考練習").trim() || "多科目模擬考練習";
+const AUTH_EMAIL_DOMAIN = String(APP_CONFIG.auth?.emailDomain || "").trim();
+const DEFAULT_SHEET_ID = String(APP_CONFIG.googleSheet?.sheetId || "").trim();
+const DEFAULT_GID = String(APP_CONFIG.googleSheet?.gid ?? "0");
+
+function normalizeSubjectId(value, fallback){
+  const cleaned = String(value || fallback || "subject")
+    .trim()
+    .toLocaleLowerCase("zh-Hant")
+    .replace(/[^a-z0-9\u3400-\u9fff_-]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+  return cleaned || String(fallback || "subject");
+}
+
+function normalizeSubjectConfig(raw, index){
+  const item = raw && typeof raw === "object" ? raw : {};
+  const name = String(item.name || item.label || item.title || `科目 ${index + 1}`).trim();
+  const id = normalizeSubjectId(item.id || item.key || name, `subject-${index + 1}`);
+  return {
+    id,
+    name: name || `科目 ${index + 1}`,
+    storageKey: normalizeSubjectId(item.storageKey || id, id),
+    sheetId: String(item.sheetId || DEFAULT_SHEET_ID || "").trim(),
+    gid: String(item.gid ?? DEFAULT_GID ?? "0").trim(),
+    sheetName: String(item.sheetName || item.tabName || "").trim(),
+    description: String(item.description || "").trim(),
+    legacyKeyMode: item.legacyKeyMode === true,
+    enabled: item.enabled !== false
+  };
+}
+
+const EXTERNAL_GOOGLE_SHEET_CONFIG = EXTERNAL_APP_CONFIG.googleSheet || {};
+const HAS_EXTERNAL_SUBJECT_LIST = Array.isArray(EXTERNAL_GOOGLE_SHEET_CONFIG.subjects);
+const HAS_LEGACY_EXTERNAL_SHEET_CONFIG = !HAS_EXTERNAL_SUBJECT_LIST && (
+  Object.prototype.hasOwnProperty.call(EXTERNAL_GOOGLE_SHEET_CONFIG, "sheetId") ||
+  Object.prototype.hasOwnProperty.call(EXTERNAL_GOOGLE_SHEET_CONFIG, "gid")
+);
+const RAW_SUBJECTS = HAS_EXTERNAL_SUBJECT_LIST
+  ? EXTERNAL_GOOGLE_SHEET_CONFIG.subjects
+  : (HAS_LEGACY_EXTERNAL_SHEET_CONFIG ? [] : (DEFAULT_APP_CONFIG.googleSheet.subjects || []));
+function makeUniqueSubjectList(items){
+  const usedIds = new Set();
+  const usedStorageKeys = new Set();
+  let legacyModeAssigned = false;
+
+  return items.map((subject, index) => {
+    let id = subject.id;
+    let storageKey = subject.storageKey;
+    let suffix = 2;
+    while(usedIds.has(id)) id = `${subject.id}-${suffix++}`;
+    suffix = 2;
+    while(usedStorageKeys.has(storageKey)) storageKey = `${subject.storageKey}-${suffix++}`;
+
+    if(id !== subject.id || storageKey !== subject.storageKey){
+      console.warn(`科目設定發現重複 id/storageKey，已自動調整第 ${index + 1} 筆。`, subject);
+    }
+
+    let legacyKeyMode = subject.legacyKeyMode;
+    if(legacyKeyMode && legacyModeAssigned){
+      console.warn(`只有一個科目可以設定 legacyKeyMode:true；「${subject.name}」已自動改為 false。`);
+      legacyKeyMode = false;
+    }
+    if(legacyKeyMode) legacyModeAssigned = true;
+
+    usedIds.add(id);
+    usedStorageKeys.add(storageKey);
+    return {...subject, id, storageKey, legacyKeyMode};
+  });
+}
+
+const SUBJECTS = makeUniqueSubjectList((RAW_SUBJECTS.length
+  ? RAW_SUBJECTS
+  : [{
+      id:"default",
+      name:String(APP_CONFIG.googleSheet?.name || "預設題庫"),
+      sheetId:DEFAULT_SHEET_ID,
+      gid:DEFAULT_GID,
+      legacyKeyMode:true
+    }])
+  .map(normalizeSubjectConfig)
+  .filter(subject => subject.enabled && subject.sheetId));
+const CONFIGURED_DEFAULT_SUBJECT_ID = normalizeSubjectId(
+  APP_CONFIG.googleSheet?.defaultSubjectId || (SUBJECTS[0] && SUBJECTS[0].id) || "default",
+  "default"
+);
+
+const TOTAL_SCORE = Number(APP_CONFIG.exam?.totalScore ?? 100);
+const PASS_SCORE = Number(APP_CONFIG.exam?.passScore ?? 70);
+const DEFAULT_QUESTION_COUNT = Number(APP_CONFIG.exam?.defaultQuestionCount ?? 20);
+const DEFAULT_QUESTION_COUNT_OPTIONS = Object.freeze([10,20,30,40,50,60,70,80,90,100]);
+const CONFIGURED_QUESTION_COUNT_OPTIONS = Array.isArray(APP_CONFIG.exam?.questionCountOptions)
+  ? [...new Set(APP_CONFIG.exam.questionCountOptions
+      .map(Number)
+      .filter(n => Number.isInteger(n) && n >= 1 && n <= 1000))]
+      .sort((a, b) => a - b)
+  : [];
+const QUESTION_COUNT_OPTIONS = CONFIGURED_QUESTION_COUNT_OPTIONS.length
+  ? CONFIGURED_QUESTION_COUNT_OPTIONS
+  : [...DEFAULT_QUESTION_COUNT_OPTIONS];
+
+let bank = [];
+let quiz = [];
+let index = 0;
+let selected = null;
+let answers = [];
+let correctCount = 0;
+let mode = "instant";
+let scopeMeta = [];
+let selectedScopes = new Set();
+let app = null;
+let auth = null;
+let db = null;
+let currentUser = null;
+let currentProfile = null;
+let activeSubject = SUBJECTS.find(subject => subject.id === CONFIGURED_DEFAULT_SUBJECT_ID) || SUBJECTS[0] || null;
+let subjectSwitchInProgress = false;
+let bankLoadSequence = 0;
+let legacyWrongStatsMigrationChecked = new Set();
+
+// ===== Firebase 讀寫優化與狀態快取 =====
+// 已練習題目改存於單一文件：users/{uid}/practiceHistory/main
+// practicedKeys 僅保存題目唯一鍵，不再為每一題建立一份 Firestore 文件。
+// 一般模擬考開始前會重新讀取這一份文件，避免多裝置 / 多分頁快取不同步。
+let practiceHistoryKeyCache = null;
+let practiceHistoryRevisionCache = 0;
+let memberStatsCache = null;
+let memberStatsRefreshTimer = null;
+let currentQuizIsReviewMode = false;
+let authStateReady = false;
+let examSaveInProgress = false;
+const MEMBER_STATS_CACHE_TTL_MS = 3 * 60 * 1000;
+const PRACTICE_HISTORY_DOC_ID = "main";
+const PRACTICE_HISTORY_SCHEMA_VERSION = "single_document_v2";
+
+const $ = id => document.getElementById(id);
+
+function activeSubjectKey(){
+  return activeSubject ? String(activeSubject.storageKey || activeSubject.id || "default") : "default";
+}
+
+function activeSubjectName(){
+  return activeSubject ? String(activeSubject.name || activeSubject.id || "預設題庫") : "預設題庫";
+}
+
+function activeSubjectSheetLabel(subject = activeSubject){
+  if(!subject) return "尚未設定";
+  if(subject.sheetName) return `工作表名稱：${subject.sheetName}`;
+  return `gid：${subject.gid || "0"}`;
+}
+
+function renderSubjectInfo(message=""){
+  const box = $("subjectInfo");
+  const titleText = activeSubject ? `${activeSubjectName()}｜${BASE_APP_TITLE}` : BASE_APP_TITLE;
+  document.title = titleText;
+  if($("appTitle")) $("appTitle").textContent = titleText;
+  if(!box) return;
+  if(!activeSubject){
+    box.innerHTML = `<b>尚未設定科目</b>：請在 config.js 的 googleSheet.subjects 新增至少一筆設定。`;
+    return;
+  }
+  const description = activeSubject.description ? `<br>${escapeHtml(activeSubject.description)}` : "";
+  box.innerHTML = `<b>目前科目：${escapeHtml(activeSubjectName())}</b>｜${escapeHtml(activeSubjectSheetLabel())}${description}${message ? `<br>${escapeHtml(message)}` : ""}`;
+}
+
+function renderSubjectOptions(){
+  const select = $("subjectInput");
+  if(!select) return;
+  if(!SUBJECTS.length){
+    select.innerHTML = `<option value="">尚未設定科目</option>`;
+    select.disabled = true;
+    activeSubject = null;
+    renderSubjectInfo();
+    return;
+  }
+
+  const savedId = normalizeSubjectId(localStorage.getItem("ai_exam_subject") || "", "");
+  const preferred = SUBJECTS.find(subject => subject.id === savedId)
+    || SUBJECTS.find(subject => subject.id === CONFIGURED_DEFAULT_SUBJECT_ID)
+    || SUBJECTS[0];
+  activeSubject = preferred;
+  select.innerHTML = SUBJECTS.map(subject =>
+    `<option value="${escapeHtml(subject.id)}">${escapeHtml(subject.name)}</option>`
+  ).join("");
+  select.value = activeSubject.id;
+  select.disabled = false;
+  renderSubjectInfo();
+}
+
+function resetSubjectView(){
+  bank = [];
+  quiz = [];
+  answers = [];
+  index = 0;
+  selected = null;
+  correctCount = 0;
+  scopeMeta = [];
+  selectedScopes = new Set();
+  invalidateMemberStatsCache();
+  if($("scopeFilterBox")) $("scopeFilterBox").classList.add("hidden");
+  if($("scopeList")) $("scopeList").innerHTML = "";
+  if($("selectedScopeProgressBox")) $("selectedScopeProgressBox").classList.add("hidden");
+  if($("practicedQuestionListBox")) $("practicedQuestionListBox").classList.add("hidden");
+  if($("showScopeProgressBtn")) $("showScopeProgressBtn").textContent = "顯示範圍進度";
+  if($("showPracticedNumbersBtn")) $("showPracticedNumbersBtn").textContent = "查看已練題號";
+  if($("finish")) $("finish").classList.add("hidden");
+  if($("review")) $("review").classList.add("hidden");
+  if($("quiz")) $("quiz").classList.add("hidden");
+  if($("setup")) $("setup").classList.remove("hidden");
+  renderQuestionCountOptions();
+}
+
+async function changeSubject(subjectId){
+  const next = SUBJECTS.find(subject => subject.id === subjectId);
+  if(!next || (activeSubject && next.id === activeSubject.id)) return;
+  activeSubject = next;
+  localStorage.setItem("ai_exam_subject", next.id);
+  subjectSwitchInProgress = true;
+  resetSubjectView();
+  renderSubjectInfo("正在切換並讀取題庫...");
+  try{
+    await loadBank();
+  }finally{
+    subjectSwitchInProgress = false;
+  }
+}
+
+function applyTheme(theme){
+  const safeTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", safeTheme);
+  localStorage.setItem("ai_exam_theme", safeTheme);
+  const btn = $("themeToggleBtn");
+  if(btn){
+    btn.textContent = safeTheme === "dark" ? "☀️ 日間模式" : "🌙 夜間模式";
+    btn.setAttribute("aria-label", safeTheme === "dark" ? "切換為日間模式" : "切換為夜間模式");
+  }
+}
+
+function initTheme(){
+  const saved = localStorage.getItem("ai_exam_theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved || (prefersDark ? "dark" : "light"));
+}
+
+function toggleTheme(){
+  const current = document.documentElement.getAttribute("data-theme") || "light";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+
+function isFirebaseConfigured(){
+  return firebaseConfig &&
+    firebaseConfig.apiKey && !String(firebaseConfig.apiKey).includes("請貼上") &&
+    firebaseConfig.authDomain && !String(firebaseConfig.authDomain).includes("請貼上") &&
+    firebaseConfig.projectId && !String(firebaseConfig.projectId).includes("請貼上");
+}
+
+function setAuthStatus(text, type="guest"){
+  const status = $("authStatus");
+  if(!status) return;
+  status.className = `authStatus ${type}`;
+  status.textContent = text;
+}
+
+function updateAuthButtons(){
+  const loggedIn = !!currentUser;
+  const configured = !!auth && !!db;
+  ["loginBtn", "registerBtn", "googleLoginBtn"].forEach(id => { if($(id)) $(id).disabled = loggedIn || !configured; });
+  ["historyWrongBtn", "historyWrongBtnFinish", "clearPracticeHistoryBtn", "clearPracticeHistoryBtnFinish", "clearWrongStatsBtn", "clearWrongStatsBtnFinish", "showScopeProgressBtn", "showPracticedNumbersBtn", "refreshMemberStatsBtn"].forEach(id => {
+    if($(id)) $(id).disabled = !loggedIn || !configured;
+  });
+  if($("logoutBtn")) $("logoutBtn").disabled = !loggedIn || !configured;
+}
+
+
+function setMemberStatsLoading(message="正在讀取會員學習狀態..."){
+  const box = $("memberStudyStatsBox");
+  if(!box) return;
+  box.classList.remove("hidden");
+  if($("practicedCountText")) $("practicedCountText").textContent = "...";
+  if($("activeWrongCountText")) $("activeWrongCountText").textContent = "...";
+  if($("masteredWrongCountText")) $("masteredWrongCountText").textContent = "...";
+  if($("memberStatsHint")) $("memberStatsHint").textContent = message;
+}
+
+function hideMemberStudyStats(){
+  const box = $("memberStudyStatsBox");
+  if(box) box.classList.add("hidden");
+  hideScopeStudyPanels();
+}
+
+function hideScopeStudyPanels(){
+  const progressBox = $("selectedScopeProgressBox");
+  const numberBox = $("practicedQuestionListBox");
+  if(progressBox) progressBox.classList.add("hidden");
+  if(numberBox) numberBox.classList.add("hidden");
+  if($("showScopeProgressBtn")) $("showScopeProgressBtn").textContent = "顯示範圍進度";
+  if($("showPracticedNumbersBtn")) $("showPracticedNumbersBtn").textContent = "查看已練題號";
+}
+
+function isScopeProgressVisible(){
+  const box = $("selectedScopeProgressBox");
+  return !!box && !box.classList.contains("hidden");
+}
+
+function isPracticedNumberListVisible(){
+  const box = $("practicedQuestionListBox");
+  return !!box && !box.classList.contains("hidden");
+}
+
+function practicedQuestionDisplayNo(item){
+  const no = questionNo(item);
+  if(no) return no;
+  return item && item.rowIndex ? `列 ${item.rowIndex}` : getQuestionKey(item);
+}
+
+function compareQuestionNumberText(a, b){
+  return String(a || "").localeCompare(String(b || ""), "zh-Hant", {
+    numeric:true,
+    sensitivity:"base"
+  });
+}
+
+async function getSelectedScopePracticeSummary(force=false){
+  if(!currentUser || !db) throw new Error("請先登入會員。 ");
+
+  const selectedItems = getSelectedQuestions();
+  const practicedKeys = await getPracticeHistoryKeys(force);
+  const practicedItems = selectedItems
+    .filter(item => practicedKeys.has(getQuestionKey(item)))
+    .sort((a, b) => compareQuestionNumberText(practicedQuestionDisplayNo(a), practicedQuestionDisplayNo(b)));
+
+  const totalCount = selectedItems.length;
+  const practicedCount = practicedItems.length;
+  const remainingCount = Math.max(0, totalCount - practicedCount);
+  const rate = totalCount ? Math.round((practicedCount / totalCount) * 1000) / 10 : 0;
+
+  return {
+    selectedItems,
+    practicedItems,
+    totalCount,
+    practicedCount,
+    remainingCount,
+    rate,
+    selectedScopeCount:selectedScopes.size,
+    totalScopeCount:scopeMeta.length
+  };
+}
+
+async function renderSelectedScopeProgress(force=false){
+  const box = $("selectedScopeProgressBox");
+  if(!box) return;
+
+  if(!currentUser || !db){
+    hideScopeStudyPanels();
+    alert("請先登入會員，才能查看所選題庫範圍的練習進度。");
+    return;
+  }
+
+  box.classList.remove("hidden");
+  if($("showScopeProgressBtn")) $("showScopeProgressBtn").textContent = "收合範圍進度";
+  if($("scopeProgressRateText")) $("scopeProgressRateText").textContent = "...";
+  if($("scopeProgressMeta")) $("scopeProgressMeta").textContent = "正在依目前勾選的題庫範圍計算...";
+  if($("scopeProgressBarFill")) $("scopeProgressBarFill").style.width = "0%";
+
+  try{
+    const summary = await getSelectedScopePracticeSummary(force);
+    const safeRate = Math.max(0, Math.min(100, Number(summary.rate || 0)));
+
+    if($("scopeProgressRateText")) $("scopeProgressRateText").textContent = `${safeRate}%`;
+    if($("scopeProgressBarFill")) $("scopeProgressBarFill").style.width = `${safeRate}%`;
+    if($("scopeProgressMeta")){
+      if(!summary.totalCount){
+        $("scopeProgressMeta").textContent = "目前沒有勾選任何題庫範圍，請先在下方至少勾選一個範圍。";
+      }else{
+        $("scopeProgressMeta").innerHTML =
+          `已選 <b>${summary.selectedScopeCount}</b> / ${summary.totalScopeCount} 個範圍，共 <b>${summary.totalCount}</b> 題；` +
+          `已練習 <b>${summary.practicedCount}</b> 題，尚未練習 <b>${summary.remainingCount}</b> 題。`;
+      }
+    }
+  }catch(e){
+    console.error("計算所選範圍進度失敗", e);
+    if($("scopeProgressRateText")) $("scopeProgressRateText").textContent = "--";
+    if($("scopeProgressMeta")) $("scopeProgressMeta").textContent = `讀取失敗：${firebaseErrorMessage(e)}`;
+  }
+}
+
+async function renderPracticedQuestionNumbers(force=false){
+  const box = $("practicedQuestionListBox");
+  const list = $("practicedQuestionNumberList");
+  if(!box || !list) return;
+
+  if(!currentUser || !db){
+    hideScopeStudyPanels();
+    alert("請先登入會員，才能查看已練習過的題號。");
+    return;
+  }
+
+  box.classList.remove("hidden");
+  if($("showPracticedNumbersBtn")) $("showPracticedNumbersBtn").textContent = "收合已練題號";
+  if($("practicedQuestionSummary")) $("practicedQuestionSummary").textContent = "正在依目前勾選範圍整理題號...";
+  list.innerHTML = `<div class="scopeEmptyState">讀取中...</div>`;
+
+  try{
+    const summary = await getSelectedScopePracticeSummary(force);
+    if($("practicedQuestionSummary")){
+      $("practicedQuestionSummary").textContent = summary.totalCount
+        ? `目前勾選範圍共 ${summary.totalCount} 題，其中已練習 ${summary.practicedCount} 題。`
+        : "目前沒有勾選任何題庫範圍。";
+    }
+
+    if(!summary.totalCount){
+      list.innerHTML = `<div class="scopeEmptyState">請先在「選擇練習範圍」至少勾選一個範圍。</div>`;
+      return;
+    }
+
+    if(!summary.practicedItems.length){
+      list.innerHTML = `<div class="scopeEmptyState">目前勾選的範圍內，還沒有已練習題目。</div>`;
+      return;
+    }
+
+    list.innerHTML = summary.practicedItems.map(item => {
+      const displayNo = practicedQuestionDisplayNo(item);
+      const title = `${scopeName(item)}｜${item.q || ""}`;
+      return `<span class="questionNumberChip" title="${escapeHtml(title)}">${escapeHtml(displayNo)}</span>`;
+    }).join("");
+  }catch(e){
+    console.error("讀取已練習題號失敗", e);
+    if($("practicedQuestionSummary")) $("practicedQuestionSummary").textContent = "讀取失敗";
+    list.innerHTML = `<div class="scopeEmptyState">${escapeHtml(firebaseErrorMessage(e))}</div>`;
+  }
+}
+
+async function toggleSelectedScopeProgress(){
+  const box = $("selectedScopeProgressBox");
+  if(!box) return;
+  if(!box.classList.contains("hidden")){
+    box.classList.add("hidden");
+    if($("showScopeProgressBtn")) $("showScopeProgressBtn").textContent = "顯示範圍進度";
+    return;
+  }
+  await renderSelectedScopeProgress(false);
+}
+
+async function togglePracticedQuestionNumbers(){
+  const box = $("practicedQuestionListBox");
+  if(!box) return;
+  if(!box.classList.contains("hidden")){
+    box.classList.add("hidden");
+    if($("showPracticedNumbersBtn")) $("showPracticedNumbersBtn").textContent = "查看已練題號";
+    return;
+  }
+  await renderPracticedQuestionNumbers(false);
+}
+
+async function refreshVisibleScopeStudyPanels(force=false){
+  if(!currentUser || !db) return;
+  if(isScopeProgressVisible()) await renderSelectedScopeProgress(force);
+  if(isPracticedNumberListVisible()) await renderPracticedQuestionNumbers(false);
+}
+
+function renderMemberStudyStats(stats, hintText=""){
+  const box = $("memberStudyStatsBox");
+  if(!box) return;
+  box.classList.remove("hidden");
+
+  const practiced = Number(stats && stats.practicedCount || 0);
+  const activeWrong = Number(stats && stats.activeWrongCount || 0);
+  const masteredWrong = Number(stats && stats.masteredWrongCount || 0);
+
+  if($("practicedCountText")) $("practicedCountText").textContent = practiced;
+  if($("activeWrongCountText")) $("activeWrongCountText").textContent = activeWrong;
+  if($("masteredWrongCountText")) $("masteredWrongCountText").textContent = masteredWrong;
+
+  const displayName = escapeHtml(getDisplayNameForLeaderboard());
+  if($("memberStatsHint")){
+    $("memberStatsHint").innerHTML = hintText || `已登入：<b>${displayName}</b>｜目前科目：<b>${escapeHtml(activeSubjectName())}</b>。一般模擬考只會排除目前科目已練習題目；錯題複習也只讀取目前科目。`;
+  }
+}
+
+function invalidateMemberStatsCache(){
+  memberStatsCache = null;
+}
+
+function scheduleMemberStatsRefresh(delayMs=900){
+  if(memberStatsRefreshTimer) clearTimeout(memberStatsRefreshTimer);
+  memberStatsRefreshTimer = setTimeout(() => {
+    memberStatsRefreshTimer = null;
+    refreshMemberStudyStats(true);
+  }, delayMs);
+}
+
+async function getAggregateCount(queryRef){
+  // Firestore count() 聚合查詢：比把整個 collection get() 回前端便宜很多。
+  // 若瀏覽器 SDK / 環境不支援 count()，才退回舊做法。
+  if(queryRef && typeof queryRef.count === "function"){
+    const snap = await queryRef.count().get();
+    const data = snap.data ? snap.data() : {};
+    return Number(data.count || 0);
+  }
+
+  console.warn("目前 Firebase SDK 不支援 count()，退回一般 get()；讀取數會較高，建議升級 Firestore Web SDK。");
+  const snap = await queryRef.get();
+  return snap.size;
+}
+
+function statsDocIdForSubject(subject = activeSubject){
+  return safeDocId(`subject_${subject ? subject.storageKey || subject.id : "default"}`);
+}
+
+async function ensureLegacyWrongStatsSubjectMigration(){
+  if(!currentUser || !db || !activeSubject || !activeSubject.legacyKeyMode) return;
+  const migrationKey = `${currentUser.uid}::${activeSubjectKey()}`;
+  if(legacyWrongStatsMigrationChecked.has(migrationKey)) return;
+
+  const markerRef = db.collection("users").doc(currentUser.uid).collection("migrations").doc("multi_subject_wrong_stats_v1");
+  const markerSnap = await markerRef.get();
+  const markerData = markerSnap.exists ? (markerSnap.data() || {}) : {};
+  const completedSubjects = Array.isArray(markerData.completedSubjects) ? markerData.completedSubjects : [];
+  if(completedSubjects.includes(activeSubjectKey())){
+    legacyWrongStatsMigrationChecked.add(migrationKey);
+    return;
+  }
+
+  const ref = db.collection("users").doc(currentUser.uid).collection("wrongStats");
+  const snap = await ref.get();
+  const legacyDocs = [];
+  snap.forEach(doc => {
+    const data = doc.data() || {};
+    if(!data.subjectKey) legacyDocs.push(doc);
+  });
+
+  for(let i = 0; i < legacyDocs.length; i += 400){
+    const batch = db.batch();
+    legacyDocs.slice(i, i + 400).forEach(doc => {
+      batch.set(doc.ref, {
+        subjectKey:activeSubjectKey(),
+        subjectName:activeSubjectName(),
+        migratedToMultiSubject:true,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+    });
+    await batch.commit();
+  }
+
+  await markerRef.set({
+    completedSubjects:firebase.firestore.FieldValue.arrayUnion(activeSubjectKey()),
+    migratedCount:legacyDocs.length,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  }, {merge:true});
+  legacyWrongStatsMigrationChecked.add(migrationKey);
+}
+
+async function getWrongStatsCountsForActiveSubject(){
+  const ref = db.collection("users").doc(currentUser.uid).collection("wrongStats");
+  const subjectKey = activeSubjectKey();
+  try{
+    const activeWrongCount = await getAggregateCount(ref.where("subjectKey", "==", subjectKey).where("mastered", "==", false));
+    const masteredWrongCount = await getAggregateCount(ref.where("subjectKey", "==", subjectKey).where("mastered", "==", true));
+    return {activeWrongCount, masteredWrongCount};
+  }catch(indexError){
+    console.warn("科目錯題 count() 查詢需要索引，改用單一科目查詢後在前端計數。", indexError);
+    const snap = await ref.where("subjectKey", "==", subjectKey).get();
+    let activeWrongCount = 0;
+    let masteredWrongCount = 0;
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      if(data.mastered === true) masteredWrongCount++;
+      else activeWrongCount++;
+    });
+    return {activeWrongCount, masteredWrongCount};
+  }
+}
+
+async function refreshMemberStudyStats(force=false){
+  const box = $("memberStudyStatsBox");
+  if(!box) return;
+
+  if(!currentUser || !db){
+    hideMemberStudyStats();
+    return;
+  }
+
+  if(!force && memberStatsCache && (Date.now() - memberStatsCache.cachedAt < MEMBER_STATS_CACHE_TTL_MS)){
+    renderMemberStudyStats(memberStatsCache);
+    return;
+  }
+
+  setMemberStatsLoading();
+
+  try{
+    const userDoc = db.collection("users").doc(currentUser.uid);
+    const statsRef = userDoc.collection("stats").doc(statsDocIdForSubject());
+
+    // practiceHistory/main 仍是單一文件，但題目 Key 會帶科目前綴；畫面只統計目前科目。
+    const practicedKeys = await getPracticeHistoryKeys(force);
+    const practicedCount = countPracticeKeysForSubject(practicedKeys);
+    await ensureLegacyWrongStatsSubjectMigration();
+
+    const statsSnap = await statsRef.get();
+    let stats = statsSnap.exists ? (statsSnap.data() || {}) : null;
+
+    // 錯題仍採每題一份統計文件，因為需要保存 wrongCount、mastered 等個別狀態。
+    // 強制刷新、舊版資料或第一次登入時，才使用 count() 聚合校正錯題數。
+    if(force || !stats || stats.statsVersion !== "read_optimized_v2"){
+      const wrongCounts = await getWrongStatsCountsForActiveSubject();
+      const activeWrongCount = wrongCounts.activeWrongCount;
+      const masteredWrongCount = wrongCounts.masteredWrongCount;
+
+      stats = {
+        subjectKey:activeSubjectKey(),
+        subjectName:activeSubjectName(),
+        activeWrongCount,
+        masteredWrongCount,
+        statsVersion:"read_optimized_v2",
+        rebuiltAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await statsRef.set(stats, {merge:true});
+      stats = {activeWrongCount, masteredWrongCount, statsVersion:"read_optimized_v2"};
+    }
+
+    memberStatsCache = {
+      practicedCount,
+      activeWrongCount: Number(stats.activeWrongCount || 0),
+      masteredWrongCount: Number(stats.masteredWrongCount || 0),
+      cachedAt: Date.now()
+    };
+
+    renderMemberStudyStats(memberStatsCache);
+  }catch(e){
+    console.error("讀取會員學習狀態失敗", e);
+    if($("memberStatsHint")) $("memberStatsHint").innerHTML = `會員學習狀態讀取失敗：${escapeHtml(firebaseErrorMessage(e))}`;
+  }
+}
+
+function initFirebase(){
+  if(!isFirebaseConfigured()){
+    $("firebaseConfigNotice").classList.remove("hidden");
+    setAuthStatus("目前：訪客模式。Firebase 尚未設定，可以練習，但不會寫入雲端錯題紀錄。", "guest");
+    authStateReady = true;
+    updateAuthButtons();
+    hideMemberStudyStats();
+    syncCountInputByScope();
+    return;
+  }
+
+  try{
+    app = firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+    auth.onAuthStateChanged(async user => {
+      // 每次登入狀態改變都清掉舊帳號快取，避免不同帳號共用題號集合。
+      currentUser = user || null;
+      currentProfile = null;
+      practiceHistoryKeyCache = null;
+      practiceHistoryRevisionCache = 0;
+      invalidateMemberStatsCache();
+      legacyWrongStatsMigrationChecked = new Set();
+      authStateReady = false;
+      updateAuthButtons();
+      syncCountInputByScope();
+
+      try{
+        if(user){
+          // 先把登入狀態顯示出來，避免 Firestore profile 建立失敗時，畫面仍停在訪客模式。
+          const fallbackName = user.displayName || (user.email ? String(user.email).split("@")[0] : "會員");
+          setAuthStatus(`目前：${fallbackName} 已登入。正在確認雲端練習紀錄...`, "loginOk");
+
+          try{
+            const profile = await ensureUserProfile(user);
+            currentProfile = profile || {};
+            const name = profile.displayName || user.displayName || profile.userName || user.email || "會員";
+            setAuthStatus(`目前：${name} 已登入。各科目的練習與錯題紀錄會分開保存。`, "loginOk");
+            await refreshMemberStudyStats();
+          }catch(e){
+            console.error("Firestore profile 建立/讀取失敗", e);
+            setAuthStatus(`目前：${fallbackName} 已登入，但 Firestore 紀錄權限異常：${firebaseErrorMessage(e)}`, "error");
+            await refreshMemberStudyStats();
+          }
+        }else{
+          setAuthStatus("目前：訪客模式。可以練習，但不會寫入雲端錯題紀錄。", "guest");
+          hideMemberStudyStats();
+        }
+      }finally{
+        authStateReady = true;
+        updateAuthButtons();
+        syncCountInputByScope();
+      }
+    });
+  }catch(e){
+    console.error(e);
+    authStateReady = true;
+    setAuthStatus("Firebase 初始化失敗：" + (e && e.message ? e.message : e), "error");
+    syncCountInputByScope();
+  }
+}
+
+async function ensureUserProfile(user){
+  const ref = db.collection("users").doc(user.uid).collection("profile").doc("main");
+  const snap = await ref.get();
+  if(snap.exists) return snap.data() || {};
+
+  const userName = user.email ? String(user.email).split("@")[0] : user.uid;
+  const profile = {
+    uid: user.uid,
+    userName,
+    displayName: user.displayName || userName,
+    email: user.email || "",
+    providerId: user.providerData && user.providerData[0] ? user.providerData[0].providerId : "password",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  await ref.set(profile, {merge:true});
+  return profile;
+}
+
+function normalizeUserName(name){
+  return String(name || "").trim().toLowerCase();
+}
+
+function validateUserName(name){
+  return /^[a-zA-Z0-9._-]{3,30}$/.test(String(name || ""));
+}
+
+function virtualEmailFromUserName(userName){
+  if(!AUTH_EMAIL_DOMAIN){
+    throw new Error("尚未設定 auth.emailDomain，請檢查 config.js 或內建設定。");
+  }
+  return `${normalizeUserName(userName)}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+function firebaseErrorMessage(err){
+  const code = err && err.code ? err.code : "";
+  const map = {
+    "auth/email-already-in-use":"這個帳號已經被註冊。若剛剛註冊時看到網路錯誤，通常代表帳號其實已建立，請直接登入。",
+    "auth/invalid-email":"帳號格式不正確。",
+    "auth/weak-password":"密碼強度不足，請至少 6 碼。",
+    "auth/user-not-found":"找不到這個帳號。",
+    "auth/wrong-password":"密碼錯誤。",
+    "auth/invalid-credential":"帳號或密碼錯誤。",
+    "auth/network-request-failed":"Firebase 網路連線失敗或逾時。帳號可能已建立成功，系統會嘗試自動登入；若仍失敗，請重新整理後直接登入。",
+    "auth/too-many-requests":"短時間嘗試太多次，Firebase 暫時限制請求。請稍後再試。",
+    "auth/popup-closed-by-user":"你已關閉 Google 登入視窗。",
+    "auth/popup-blocked":"瀏覽器阻擋彈出登入視窗，請允許彈出視窗或改用重新導向登入。",
+    "auth/unauthorized-domain":"這個網域尚未加入 Firebase Authentication 的 Authorized domains。",
+    "auth/permission-denied":"Firestore 權限不足，請檢查 Firestore Rules。",
+    "permission-denied":"Firestore 權限不足，請檢查 Firestore Rules。",
+    "unavailable":"Firestore 目前連線失敗或服務暫時不可用，請稍後重試。",
+    "auth/operation-not-allowed":"Firebase Console 尚未啟用這個登入方式。"
+  };
+  return map[code] || (err && err.message ? err.message : String(err));
+}
+
+async function loginMember(){
+  if(!auth){ alert("Firebase 尚未設定，無法登入。"); return; }
+  const userName = normalizeUserName($("loginUserInput").value);
+  const password = String($("loginPassInput").value || "");
+  if(!validateUserName(userName)){
+    alert("帳號需為 3～30 碼，只能使用英文、數字、底線、連字號、小數點。");
+    return;
+  }
+  if(!password){ alert("請輸入密碼。"); return; }
+
+  try{
+    $("loginBtn").disabled = true;
+    setAuthStatus("登入驗證中...", "guest");
+    await auth.signInWithEmailAndPassword(virtualEmailFromUserName(userName), password);
+    $("loginPassInput").value = "";
+  }catch(e){
+    setAuthStatus("登入失敗：" + firebaseErrorMessage(e), "error");
+  }finally{
+    updateAuthButtons();
+  }
+}
+
+async function registerMember(){
+  if(!auth || !db){ alert("Firebase 尚未設定，無法建立帳號。"); return; }
+
+  const userName = normalizeUserName($("loginUserInput").value);
+  const password = String($("loginPassInput").value || "");
+  const displayName = String($("registerDisplayInput").value || userName).trim() || userName;
+  const email = virtualEmailFromUserName(userName);
+
+  if(!validateUserName(userName)){
+    alert("帳號需為 3～30 碼，只能使用英文、數字、底線、連字號、小數點。\n請在『使用者帳號』欄位輸入。");
+    return;
+  }
+  if(password.length < 6){ alert("密碼至少 6 碼。請在『密碼』欄位輸入。"); return; }
+
+  $("registerBtn").disabled = true;
+  setAuthStatus("建立帳號中...", "guest");
+
+  let cred = null;
+
+  // 第一步：建立 Firebase Authentication 帳號。
+  // 注意：有時候網路逾時時，Firebase 後端其實已經建立成功，但前端仍會丟出 auth/network-request-failed。
+  // 所以這裡不能直接顯示「建立失敗」，而是會再嘗試登入確認。
+  try{
+    cred = await auth.createUserWithEmailAndPassword(email, password);
+    setAuthStatus(`帳號 ${userName} 已建立成功，正在寫入會員資料...`, "loginOk");
+  }catch(e){
+    console.warn("建立帳號流程回傳錯誤，準備檢查是否其實已建立成功", e);
+
+    const mayAlreadyCreated = e && (
+      e.code === "auth/network-request-failed" ||
+      e.code === "auth/email-already-in-use"
+    );
+
+    if(mayAlreadyCreated){
+      try{
+        setAuthStatus("帳號可能已建立成功，正在嘗試直接登入確認...", "guest");
+        cred = await auth.signInWithEmailAndPassword(email, password);
+        setAuthStatus(`帳號 ${userName} 已存在或已建立成功，已自動登入。正在補寫會員資料...`, "loginOk");
+      }catch(loginError){
+        console.error("註冊後自動登入確認失敗", loginError);
+        const prefix = e.code === "auth/email-already-in-use"
+          ? "這個帳號已經存在，但無法用目前密碼登入："
+          : "建立帳號時網路異常，且自動登入確認失敗：";
+        setAuthStatus(prefix + firebaseErrorMessage(loginError) + " 請重新整理頁面後，改按『登入並啟用紀錄』。", "error");
+        updateAuthButtons();
+        return;
+      }
+    }else{
+      setAuthStatus("建立帳號失敗：" + firebaseErrorMessage(e), "error");
+      updateAuthButtons();
+      return;
+    }
+  }
+
+  const user = cred && cred.user ? cred.user : auth.currentUser;
+  if(!user){
+    setAuthStatus("帳號建立流程完成，但目前瀏覽器沒有取得登入狀態。請重新整理後直接登入。", "error");
+    updateAuthButtons();
+    return;
+  }
+
+  // 第二步：更新 Firebase Auth 的 displayName。失敗不代表帳號建立失敗。
+  try{
+    await user.updateProfile({displayName});
+  }catch(e){
+    console.warn("更新暱稱失敗，但帳號已建立/已登入", e);
+  }
+
+  // 第三步：寫入 Firestore profile。失敗不代表帳號建立失敗，只代表會員資料或錯題雲端紀錄暫時有問題。
+  try{
+    const ref = db.collection("users").doc(user.uid).collection("profile").doc("main");
+    const profilePayload = {
+      uid: user.uid,
+      userName,
+      displayName,
+      email: user.email || "",
+      providerId: "password",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await ref.set(profilePayload, {merge:true});
+    currentProfile = {...profilePayload};
+
+    $("loginPassInput").value = "";
+    setAuthStatus(`目前：${displayName} 已登入。會員資料已寫入，考完後錯題會寫入 Firestore。`, "loginOk");
+  }catch(e){
+    console.error("Firestore profile 寫入失敗，但帳號已建立/已登入", e);
+    $("loginPassInput").value = "";
+    setAuthStatus(`目前：${displayName} 已登入，但會員資料寫入 Firestore 失敗：${firebaseErrorMessage(e)}。可以先練習；若錯題無法同步，請檢查 Firestore API 與 Rules。`, "error");
+  }finally{
+    updateAuthButtons();
+  }
+}
+async function loginWithGoogle(){
+  if(!auth || !db){ alert("Firebase 尚未設定，無法使用 Google 登入。"); return; }
+  try{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await auth.signInWithPopup(provider);
+  }catch(e){
+    console.error("Google 登入失敗", e);
+    // 手機瀏覽器或部分瀏覽器可能阻擋 popup，改用 redirect 登入。
+    if(e && (e.code === "auth/popup-blocked" || e.code === "auth/cancelled-popup-request")){
+      try{
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        await auth.signInWithRedirect(provider);
+        return;
+      }catch(re){
+        setAuthStatus("Google 重新導向登入失敗：" + firebaseErrorMessage(re), "error");
+        return;
+      }
+    }
+    setAuthStatus("Google 登入失敗：" + firebaseErrorMessage(e), "error");
+  }
+}
+
+async function logoutMember(){
+  if(!auth) return;
+  await auth.signOut();
+}
+
+function normalizeHeader(h){
+  return String(h || "").trim().toLowerCase()
+    .replace(/\s/g,"")
+    .replace("：","")
+    .replace(":","")
+    .replace("選項","")
+    .replace("option","");
+}
+
+function pick(obj, names){
+  for(const n of names){
+    const key = Object.keys(obj).find(k => normalizeHeader(k) === normalizeHeader(n));
+    if(key && obj[key] !== undefined && String(obj[key]).trim() !== "") return String(obj[key]).trim();
+  }
+  return "";
+}
+
+function gvizToRows(json){
+  const cols = json.table.cols.map(c => c.label || c.id || "");
+  const rows = json.table.rows.map(r => {
+    return r.c.map(cell => {
+      if(!cell) return "";
+      return cell.f !== undefined ? cell.f : (cell.v !== undefined ? cell.v : "");
+    });
+  });
+  return [cols, ...rows];
+}
+
+function rowsToQuestions(rows, subject = activeSubject){
+  if(!rows || rows.length < 2) return [];
+  const header = rows[0].map(x => String(x || "").trim());
+  const dataRows = rows.slice(1).filter(r => r.some(x => String(x||"").trim()));
+
+  return dataRows.map((r, rowIndex) => {
+    const obj = {};
+    header.forEach((h,i)=>obj[h]=r[i] || "");
+
+    const no = pick(obj, ["題號","編號","no","id"]);
+    const scope = pick(obj, ["範圍","章節","科目","分類","range","scope"]);
+    const type = pick(obj, ["題目類型","類型","題型","type"]);
+    const q = pick(obj, ["題目","問題","question","試題"]);
+
+    const opts = [
+      pick(obj, ["選項1","選項一","1","A","甲","選項A","optionA"]),
+      pick(obj, ["選項2","選項二","2","B","乙","選項B","optionB"]),
+      pick(obj, ["選項3","選項三","3","C","丙","選項C","optionC"]),
+      pick(obj, ["選項4","選項四","4","D","丁","選項D","optionD"])
+    ].filter(Boolean);
+
+    const ans = pick(obj, ["正確答案","答案","正解","answer","correct"]);
+    const exp = pick(obj, ["解析","說明","explanation"]);
+
+    return {
+      no, scope, type, q, opts, ans, exp, rowIndex: rowIndex + 2,
+      subjectKey:String(subject && (subject.storageKey || subject.id) || "default"),
+      subjectName:String(subject && subject.name || "預設題庫"),
+      subjectLegacyKeyMode:!!(subject && subject.legacyKeyMode)
+    };
+  }).filter(x => x.q && x.opts.length >= 2 && x.ans);
+}
+
+function shuffle(arr){
+  return [...arr].sort(()=>Math.random()-0.5);
+}
+
+function scopeName(item){
+  const name = String(item.scope || "未分類").trim();
+  return name || "未分類";
+}
+
+function buildScopeMeta(){
+  const counts = {};
+  bank.forEach(item => {
+    const name = scopeName(item);
+    counts[name] = (counts[name] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([name, count]) => ({name, count}))
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+}
+
+function getSelectedQuestions(){
+  if(!bank.length || !selectedScopes.size) return [];
+  return bank.filter(item => selectedScopes.has(scopeName(item)));
+}
+
+function updateScopeSummary(){
+  const summary = $("scopeSummary");
+  if(!summary) return;
+  const selectedQuestionCount = getSelectedQuestions().length;
+  const selectedScopeCount = selectedScopes.size;
+  const totalScopeCount = scopeMeta.length;
+
+  if(!selectedScopeCount){
+    summary.textContent = `尚未選擇範圍，請至少勾選一個範圍。`;
+  }else{
+    summary.textContent = `已選 ${selectedScopeCount} / ${totalScopeCount} 個範圍，共 ${selectedQuestionCount} 題。預設全選，可取消不想練的範圍。`;
+  }
+}
+
+function renderQuestionCountOptions(maxCount = Infinity){
+  const countInput = $("countInput");
+  if(!countInput) return;
+
+  const current = Number(countInput.value || DEFAULT_QUESTION_COUNT);
+  const safeOptions = QUESTION_COUNT_OPTIONS.length
+    ? QUESTION_COUNT_OPTIONS
+    : [...DEFAULT_QUESTION_COUNT_OPTIONS];
+  const available = safeOptions.filter(count => count <= maxCount);
+
+  const options = safeOptions.map(count => {
+    const disabled = count > maxCount ? " disabled" : "";
+    return `<option value="${count}"${disabled}>${count} 題</option>`;
+  });
+
+  // 所選範圍不足最小預設題數時，仍可直接選擇「全部可用」。
+  if(Number.isFinite(maxCount) && maxCount > 0 && available.length === 0){
+    options.unshift(`<option value="${maxCount}">全部可用（${maxCount} 題）</option>`);
+  }
+
+  countInput.innerHTML = options.join("");
+
+  let nextValue;
+  if(available.includes(current)){
+    nextValue = current;
+  }else if(available.includes(DEFAULT_QUESTION_COUNT)){
+    nextValue = DEFAULT_QUESTION_COUNT;
+  }else if(available.length){
+    nextValue = available[available.length - 1];
+  }else if(Number.isFinite(maxCount) && maxCount > 0){
+    nextValue = maxCount;
+  }else{
+    nextValue = safeOptions.includes(DEFAULT_QUESTION_COUNT)
+      ? DEFAULT_QUESTION_COUNT
+      : safeOptions[0];
+  }
+
+  countInput.value = String(nextValue);
+}
+
+function syncCountInputByScope(){
+  const pool = getSelectedQuestions();
+  const countInput = $("countInput");
+  const startBtn = $("startBtn");
+  const availableCount = pool.length;
+
+  if(!countInput || !startBtn) return;
+
+  renderQuestionCountOptions(availableCount);
+
+  const waitingForAuth = !!auth && !authStateReady;
+  startBtn.disabled = availableCount <= 0 || waitingForAuth || examSaveInProgress;
+  updateScopeSummary();
+}
+
+function updateScopeSelection(){
+  selectedScopes = new Set([...document.querySelectorAll(".scopeCheckbox:checked")].map(cb => cb.value));
+  syncCountInputByScope();
+  refreshVisibleScopeStudyPanels(false);
+}
+
+function setAllScopes(checked){
+  document.querySelectorAll(".scopeCheckbox").forEach(cb => cb.checked = checked);
+  updateScopeSelection();
+}
+
+function renderScopeFilter(){
+  const box = $("scopeFilterBox");
+  const list = $("scopeList");
+  if(!box || !list) return;
+
+  scopeMeta = buildScopeMeta();
+  selectedScopes = new Set(scopeMeta.map(s => s.name));
+
+  if(!scopeMeta.length){
+    box.classList.add("hidden");
+    list.innerHTML = "";
+    syncCountInputByScope();
+    return;
+  }
+
+  list.innerHTML = scopeMeta.map(s => `
+    <label class="scopeItem" title="${escapeHtml(s.name)}">
+      <input type="checkbox" class="scopeCheckbox" value="${escapeHtml(s.name)}" checked>
+      <span>${escapeHtml(s.name)}</span>
+      <span class="scopeCount">${s.count} 題</span>
+    </label>
+  `).join("");
+
+  box.classList.remove("hidden");
+  document.querySelectorAll(".scopeCheckbox").forEach(cb => cb.onchange = updateScopeSelection);
+  syncCountInputByScope();
+}
+
+function answerIndex(item){
+  const raw = String(item.ans || "").trim();
+  const a = raw.toUpperCase();
+  const letters = ["A","B","C","D"];
+
+  if(letters.includes(a)) return letters.indexOf(a);
+
+  const numMatch = raw.match(/[1-4]/);
+  if(numMatch && raw.length <= 8) return Number(numMatch[0]) - 1;
+
+  const letterMatch = a.match(/[ABCD]/);
+  if(letterMatch && a.length <= 8) return letters.indexOf(letterMatch[0]);
+
+  const idx = item.opts.findIndex(o => String(o).trim() === raw);
+  return idx >= 0 ? idx : -1;
+}
+
+function loadGoogleSheetByJSONP(subject = activeSubject){
+  return new Promise((resolve, reject) => {
+    if(!subject || !subject.sheetId){
+      reject(new Error("目前科目尚未設定 Google Sheet sheetId。"));
+      return;
+    }
+
+    const callbackName = "googleSheetCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    const script = document.createElement("script");
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`「${subject.name}」讀取逾時。請確認 Google Sheet 權限為「知道連結的任何人可以檢視」。`));
+    }, 15000);
+
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[callbackName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[callbackName] = function(json){
+      cleanup();
+      resolve(json);
+    };
+
+    script.onerror = function(){
+      cleanup();
+      reject(new Error(`「${subject.name}」Google Sheet 載入失敗。請確認 sheetId、gid 或 sheetName。`));
+    };
+
+    const tabQuery = subject.sheetName
+      ? `sheet=${encodeURIComponent(subject.sheetName)}`
+      : `gid=${encodeURIComponent(subject.gid || "0")}`;
+    script.src = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(subject.sheetId)}/gviz/tq?${tabQuery}&tqx=responseHandler:${callbackName}&t=${Date.now()}`;
+    document.body.appendChild(script);
+  });
+}
+
+function normalizeQuestionContent(value){
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("zh-Hant")
+    .replace(/\s+/g, " ");
+}
+
+function questionContentSignature(item){
+  return [
+    normalizeQuestionContent(item.scope),
+    normalizeQuestionContent(item.q),
+    ...(item.opts || []).map(normalizeQuestionContent),
+    normalizeQuestionContent(item.ans)
+  ].join("||");
+}
+
+function deduplicateQuestionBank(items){
+  const seenKeys = new Map();
+  const seenContents = new Map();
+  const questions = [];
+  const duplicateKeys = [];
+  const duplicateContents = [];
+  let missingPermanentIdCount = 0;
+
+  items.forEach(item => {
+    const permanentNo = questionNo(item);
+    const key = getQuestionKey(item);
+    const contentSignature = questionContentSignature(item);
+
+    if(!permanentNo) missingPermanentIdCount++;
+
+    if(seenKeys.has(key)){
+      duplicateKeys.push({key, first:seenKeys.get(key), duplicate:item});
+      return;
+    }
+
+    if(seenContents.has(contentSignature)){
+      duplicateContents.push({first:seenContents.get(contentSignature), duplicate:item});
+      return;
+    }
+
+    seenKeys.set(key, item);
+    seenContents.set(contentSignature, item);
+    questions.push(item);
+  });
+
+  return {questions, duplicateKeys, duplicateContents, missingPermanentIdCount};
+}
+
+async function loadBank(){
+  const loadId = ++bankLoadSequence;
+  const subject = activeSubject;
+  $("loadMsg").textContent = `正在讀取「${activeSubjectName()}」題庫...`;
+  renderSubjectInfo("正在讀取題庫...");
+  try{
+    if(!subject || !subject.sheetId){
+      throw new Error("尚未設定科目或 Google Sheet sheetId，請檢查 config.js 的 googleSheet.subjects。");
+    }
+    const json = await loadGoogleSheetByJSONP(subject);
+    if(loadId !== bankLoadSequence || subject !== activeSubject) return;
+    const rows = gvizToRows(json);
+    const parsedBank = rowsToQuestions(rows, subject);
+    const deduped = deduplicateQuestionBank(parsedBank);
+    bank = deduped.questions;
+
+    if(deduped.duplicateKeys.length){
+      console.warn("題庫發現重複題號 / Key，已保留第一筆並排除後續重複：", deduped.duplicateKeys);
+    }
+    if(deduped.duplicateContents.length){
+      console.warn("題庫發現內容完全相同的重複題，已保留第一筆：", deduped.duplicateContents);
+    }
+
+    if(!bank.length){
+      console.log(rows.slice(0,5));
+      throw new Error("讀不到題目，請確認第一列欄位包含：題號、範圍、題目類型、題目、選項1、選項2、選項3、選項4、正確答案、解析。");
+    }
+
+    renderScopeFilter();
+    const removedDuplicateCount = deduped.duplicateKeys.length + deduped.duplicateContents.length;
+    const warnings = [];
+    if(removedDuplicateCount) warnings.push(`已自動排除 ${removedDuplicateCount} 筆重複題`);
+    if(deduped.missingPermanentIdCount) warnings.push(`${deduped.missingPermanentIdCount} 題沒有永久題號，修改題目文字後可能被視為新題`);
+    $("loadMsg").textContent = `「${activeSubjectName()}」題庫讀取成功：可用 ${bank.length} 題，已預設全選 ${scopeMeta.length} 個範圍。${warnings.length ? " 注意：" + warnings.join("；") + "。" : ""}`;
+    renderSubjectInfo(`已載入 ${bank.length} 題、${scopeMeta.length} 個範圍。`);
+    refreshMemberStudyStats();
+    refreshVisibleScopeStudyPanels(false);
+  }catch(e){
+    if(loadId !== bankLoadSequence || subject !== activeSubject) return;
+    $("loadMsg").innerHTML =
+      `「${escapeHtml(activeSubjectName())}」讀取失敗：${escapeHtml(e.message)}<br>` +
+      `請確認 Google Sheet 權限為「知道連結的任何人可以檢視」，欄位名稱為：題號、範圍、題目類型、題目、選項1、選項2、選項3、選項4、正確答案、解析。`;
+  }
+}
+
+async function startQuiz(sourceQuestions = null){
+  if(examSaveInProgress){
+    alert("上一回測驗紀錄仍在同步，請等同步完成後再開始下一回。");
+    return;
+  }
+  if(auth && !authStateReady){
+    alert("會員登入狀態仍在確認中，請稍後再開始。");
+    return;
+  }
+  if(!bank.length){ alert("題庫尚未讀取成功"); return; }
+
+  // sourceQuestions 有值時代表「只練本次錯題」或「歷史錯題複習」。
+  // 這類是刻意複習，所以不套用已練習題目排除規則。
+  if(Array.isArray(sourceQuestions) && sourceQuestions.length){
+    currentQuizIsReviewMode = true;
+    quiz = shuffle(sourceQuestions);
+    mode = "instant";
+  }else{
+    currentQuizIsReviewMode = false;
+    mode = $("modeInput").value;
+    let pool = getSelectedQuestions();
+    if(!pool.length){
+      alert("請至少勾選一個要練習的範圍");
+      return;
+    }
+
+    const originalPoolCount = pool.length;
+
+    // 登入會員的一般模擬考：每次開始前都重新讀取 practiceHistory/main。
+    // 只需讀取一份文件，即可避免多裝置 / 多分頁快取不同步造成重複出題。
+    if(currentUser && db){
+      try{
+        const practicedKeys = await getPracticeHistoryKeys(true);
+        pool = pool.filter(item => !practicedKeys.has(getQuestionKey(item)));
+        const skippedCount = originalPoolCount - pool.length;
+
+        if(skippedCount > 0 && $("loadMsg")){
+          $("loadMsg").textContent = `已依會員練習歷史排除 ${skippedCount} 題，本次可抽 ${pool.length} 題。`;
+        }
+
+        if(!pool.length){
+          alert("你勾選的範圍內，題目都已經練習過了。\n可以按「清除已練習紀錄」讓題目重新出現，或改勾選其他範圍。");
+          return;
+        }
+      }catch(e){
+        console.error("讀取已練習紀錄失敗", e);
+        alert("讀取已練習紀錄失敗：" + firebaseErrorMessage(e) + "\n為避免重複出題，請稍後再試或先清除已練習紀錄。");
+        return;
+      }
+    }
+
+    const requestedCount = Math.max(1, Number($("countInput").value) || DEFAULT_QUESTION_COUNT);
+    const count = Math.min(requestedCount, pool.length);
+
+    if(requestedCount > pool.length && $("loadMsg")){
+      $("loadMsg").textContent = `你設定 ${requestedCount} 題，但目前所選範圍只有 ${pool.length} 題可用，本次將出 ${count} 題。`;
+    }
+
+    quiz = shuffle(pool).slice(0, count);
+  }
+
+  index = 0; selected = null; answers = []; correctCount = 0;
+  $("setup").classList.add("hidden");
+  $("finish").classList.add("hidden");
+  $("review").classList.add("hidden");
+  $("quiz").classList.remove("hidden");
+  renderQuestion();
+}
+
+function renderQuestion(){
+  selected = null;
+  const item = quiz[index];
+  $("progressText").textContent = `第 ${index+1} / ${quiz.length} 題`;
+  $("scoreText").textContent = `目前答對：${correctCount}`;
+  $("progressBar").style.width = `${((index)/quiz.length)*100}%`;
+  const meta = [
+    item.subjectName ? `科目：${item.subjectName}` : "",
+    item.no ? `題號：${item.no}` : "",
+    item.scope ? `範圍：${item.scope}` : "",
+    item.type ? `題型：${item.type}` : ""
+  ].filter(Boolean).join("　");
+  $("questionText").textContent = (meta ? meta + "\n\n" : "") + item.q;
+  $("feedback").innerHTML = "";
+  $("submitBtn").disabled = false;
+  $("nextBtn").disabled = true;
+
+  const letters = ["A","B","C","D"];
+  $("options").innerHTML = "";
+  item.opts.forEach((opt,i)=>{
+    const btn = document.createElement("button");
+    btn.className = "option";
+    btn.textContent = `${letters[i]}. ${opt}`;
+    btn.onclick = () => {
+      selected = i;
+      [...document.querySelectorAll(".option")].forEach(x=>x.classList.remove("selected"));
+      btn.classList.add("selected");
+    };
+    $("options").appendChild(btn);
+  });
+}
+
+function submitAnswer(){
+  if(selected === null){ alert("請先選一個答案"); return; }
+  const item = quiz[index];
+  const correct = answerIndex(item);
+  const isCorrect = selected === correct;
+  answers.push({item, selected, correct, isCorrect});
+  if(isCorrect) correctCount++;
+
+  $("scoreText").textContent = `目前答對：${correctCount}`;
+  $("submitBtn").disabled = true;
+  $("nextBtn").disabled = false;
+
+  if(mode === "instant"){
+    [...document.querySelectorAll(".option")].forEach((btn,i)=>{
+      if(i === correct) btn.classList.add("correct");
+      if(i === selected && !isCorrect) btn.classList.add("wrong");
+    });
+    const letters = ["A","B","C","D"];
+    $("feedback").innerHTML =
+      `<div class="result ${isCorrect ? "ok" : "bad"}">${isCorrect ? "答對了！" : "答錯了！"} 正解：${correct >= 0 ? letters[correct] : escapeHtml(item.ans)}</div>` +
+      (item.exp ? `<p><b>解析：</b>${escapeHtml(item.exp)}</p>` : "");
+  }
+}
+
+function nextQuestion(){
+  index++;
+  if(index >= quiz.length) finishQuiz();
+  else renderQuestion();
+}
+
+async function finishQuiz(){
+  $("quiz").classList.add("hidden");
+  $("finish").classList.remove("hidden");
+  $("progressBar").style.width = `100%`;
+
+  const total = quiz.length || 1;
+  const wrongCount = total - correctCount;
+  const rawScore = (correctCount / total) * TOTAL_SCORE;
+  const score = Math.round(rawScore * 10) / 10;
+  const rate = Math.round((correctCount / total) * 100);
+  const pointPerQuestion = Math.round((TOTAL_SCORE / total) * 10) / 10;
+  const passed = score >= PASS_SCORE;
+
+  $("finalScore").textContent = score;
+  $("finalTotal").textContent = TOTAL_SCORE;
+  $("finalCorrect").textContent = correctCount;
+  $("finalWrong").textContent = wrongCount;
+  $("finalRate").textContent = `${rate}%`;
+  $("finalPoint").textContent = pointPerQuestion;
+
+  $("finalStatus").className = `summaryBox ${passed ? "passBox" : "failBox"}`;
+  $("finalStatus").innerHTML = passed
+    ? `<b>結果：通過門檻</b>，本次 ${score} / ${TOTAL_SCORE} 分。`
+    : `<b>結果：未達門檻</b>，本次 ${score} / ${TOTAL_SCORE} 分，建議先複習錯題再重考。`;
+
+  $("finalSummary").innerHTML =
+    `本次共 ${total} 題，每題約 ${pointPerQuestion} 分；答對 ${correctCount} 題、答錯 ${wrongCount} 題。` +
+    `設定通過門檻為 ${PASS_SCORE} 分，可在程式中的 <b>PASS_SCORE</b> 自行調整。`;
+
+  renderWeakPoint();
+  $("practiceWrongBtn").disabled = true;
+  reviewWrong();
+
+  // 先鎖住重新開始 / 複習按鈕，避免 Firestore 尚未完成寫入就立刻開下一回。
+  examSaveInProgress = true;
+  ["againBtn", "practiceWrongBtn", "historyWrongBtnFinish", "clearPracticeHistoryBtnFinish"].forEach(id => {
+    if($(id)) $(id).disabled = true;
+  });
+  syncCountInputByScope();
+
+  try{
+    // 已練習紀錄優先完成，確保下一回一般模擬考一定能排除本回題目。
+    const practiceSaved = await savePracticeHistoryIfLoggedIn();
+    if(practiceSaved === false){
+      alert("本回已練習題目同步失敗。為避免下次重複抽到，請確認網路與 Firestore 權限後再重新開始。");
+    }
+
+    // 錯題與排行榜可以平行同步。
+    await Promise.all([
+      saveWrongStatsIfLoggedIn(),
+      saveExamResultIfLoggedIn({score, total, correctCount, wrongCount, rate, mode})
+    ]);
+  }finally{
+    examSaveInProgress = false;
+    if($("againBtn")) $("againBtn").disabled = false;
+    if($("practiceWrongBtn")) $("practiceWrongBtn").disabled = wrongCount === 0;
+    if($("historyWrongBtnFinish")) $("historyWrongBtnFinish").disabled = !currentUser || !db;
+    if($("clearPracticeHistoryBtnFinish")) $("clearPracticeHistoryBtnFinish").disabled = !currentUser || !db;
+    syncCountInputByScope();
+  }
+}
+
+function renderWeakPoint(){
+  const wrong = answers.filter(a => !a.isCorrect);
+  if(!wrong.length){
+    $("weakPoint").innerHTML = "<b>弱點分析：</b>這次沒有錯題，狀態很好。可以加大題數或切換考試模式挑戰。";
+    return;
+  }
+
+  const countMap = {};
+  wrong.forEach(a => {
+    const key = a.item.scope || a.item.type || "未分類";
+    countMap[key] = (countMap[key] || 0) + 1;
+  });
+
+  const ranking = Object.entries(countMap)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([name,count])=>`${escapeHtml(name)}：${count} 題`)
+    .join("、");
+
+  $("weakPoint").innerHTML = `<b>弱點分析：</b>${ranking}<br><span class="muted small">建議先看下方錯題解析，再按「只練本次錯題」或「錯題內容複習」重跑一輪。</span>`;
+}
+
+function optionListHtml(a){
+  const letters = ["A","B","C","D"];
+  return `<ul class="optionList">${a.item.opts.map((opt,i)=>{
+    const cls = i === a.correct ? "correctOpt" : (i === a.selected ? "wrongOpt" : "");
+    return `<li class="${cls}">${letters[i] || "-"}. ${escapeHtml(opt)}</li>`;
+  }).join("")}</ul>`;
+}
+
+function reviewWrong(){
+  const wrong = answers.filter(a => !a.isCorrect);
+  $("review").classList.remove("hidden");
+  if(!wrong.length){
+    $("reviewTable").innerHTML = "<p class='muted'>恭喜，沒有錯題。</p>";
+    return;
+  }
+
+  const letters = ["A","B","C","D"];
+  $("reviewTable").innerHTML = wrong.map((a,i)=>{
+    const meta = [
+      a.item.subjectName ? "科目：" + a.item.subjectName : "",
+      a.item.no ? "題號：" + a.item.no : "",
+      a.item.scope ? "範圍：" + a.item.scope : "",
+      a.item.type ? "題型：" + a.item.type : ""
+    ].filter(Boolean).join("　");
+
+    const yourAnswer = `${letters[a.selected] || "-"}．${escapeHtml(a.item.opts[a.selected] || "")}`;
+    const correctAnswer = a.correct >= 0
+      ? `${letters[a.correct] || "-"}．${escapeHtml(a.item.opts[a.correct] || "")}`
+      : escapeHtml(a.item.ans || "正確答案格式無法判讀");
+
+    return `<div class="wrongCard">
+      <h3>錯題 ${i+1}：${escapeHtml(a.item.q)}</h3>
+      ${meta ? `<div class="muted small">${escapeHtml(meta)}</div>` : ""}
+      ${optionListHtml(a)}
+      <div class="answerLine bad"><b>你的答案：</b>${yourAnswer}</div>
+      <div class="answerLine ok"><b>正確答案：</b>${correctAnswer}</div>
+      <div class="answerLine"><b>解析：</b>${escapeHtml(a.item.exp || "這題目前沒有解析，建議回題庫補上解析欄位。")}</div>
+    </div>`;
+  }).join("");
+}
+
+function practiceWrong(){
+  const wrongItems = answers.filter(a => !a.isCorrect).map(a => a.item);
+  if(!wrongItems.length){
+    alert("這次沒有錯題可以練習");
+    return;
+  }
+  startQuiz(wrongItems);
+}
+
+function questionNo(item){
+  return String((item && item.no) || "").trim();
+}
+
+function fallbackQuestionKey(item){
+  const raw = `${item.scope || ""}|${item.q || ""}`;
+  let hash = 0;
+  for(let i=0;i<raw.length;i++){
+    hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return "QHASH_" + Math.abs(hash).toString(36);
+}
+
+function questionBaseKey(item){
+  return questionNo(item) || fallbackQuestionKey(item);
+}
+
+function itemSubjectKey(item){
+  return String(item && item.subjectKey || activeSubjectKey());
+}
+
+function getQuestionKey(item){
+  const baseKey = questionBaseKey(item);
+  if(item && item.subjectLegacyKeyMode) return baseKey;
+  return `${itemSubjectKey(item)}::${baseKey}`;
+}
+
+function isPracticeKeyForSubject(key, subject = activeSubject){
+  const normalized = String(key || "").trim();
+  if(!normalized || !subject) return false;
+  if(subject.legacyKeyMode) return !normalized.includes("::");
+  return normalized.startsWith(`${subject.storageKey || subject.id}::`);
+}
+
+function countPracticeKeysForSubject(keys, subject = activeSubject){
+  if(!(keys instanceof Set)) return 0;
+  let count = 0;
+  keys.forEach(key => { if(isPracticeKeyForSubject(key, subject)) count++; });
+  return count;
+}
+
+function safeDocId(key){
+  return "q_" + encodeURIComponent(String(key || "")).replace(/%/g, "_");
+}
+
+function selectedAnswerText(answerObj){
+  const letters = ["A","B","C","D"];
+  const idx = answerObj.selected;
+  return `${letters[idx] || "-"}．${answerObj.item.opts[idx] || ""}`;
+}
+
+function correctAnswerText(answerObj){
+  const letters = ["A","B","C","D"];
+  const idx = answerObj.correct;
+  if(idx >= 0) return `${letters[idx] || "-"}．${answerObj.item.opts[idx] || ""}`;
+  return String(answerObj.item.ans || "");
+}
+
+function buildWrongStatsPayload(){
+  return answers.filter(a => !a.isCorrect).map(a => ({
+    questionNo: getQuestionKey(a.item),
+    subjectKey:itemSubjectKey(a.item),
+    subjectName:a.item.subjectName || activeSubjectName(),
+    scope: a.item.scope || "未分類",
+    type: a.item.type || "",
+    lastSelected: selectedAnswerText(a),
+    correctAnswer: correctAnswerText(a)
+  })).filter(x => x.questionNo);
+}
+
+function buildPracticeHistoryKeys(){
+  return [...new Set(
+    quiz
+      .map(item => String(getQuestionKey(item) || "").trim())
+      .filter(Boolean)
+  )];
+}
+
+function practiceHistoryCollectionRef(){
+  return db.collection("users").doc(currentUser.uid).collection("practiceHistory");
+}
+
+function practiceHistoryMainRef(){
+  return practiceHistoryCollectionRef().doc(PRACTICE_HISTORY_DOC_ID);
+}
+
+function readKeysFromPracticeHistoryData(data){
+  const rawKeys = data && Array.isArray(data.practicedKeys) ? data.practicedKeys : [];
+  return new Set(rawKeys.map(key => String(key || "").trim()).filter(Boolean));
+}
+
+async function deleteLegacyPracticeHistoryDocs(legacyDocs){
+  if(!legacyDocs || !legacyDocs.length) return 0;
+  let deleted = 0;
+
+  for(let i = 0; i < legacyDocs.length; i += 450){
+    const chunk = legacyDocs.slice(i, i + 450);
+    const batch = db.batch();
+    chunk.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    deleted += chunk.length;
+  }
+
+  return deleted;
+}
+
+async function loadOrMigratePracticeHistory(){
+  if(!currentUser || !db) return {keys:new Set(), revision:0, migrated:false};
+
+  const mainRef = practiceHistoryMainRef();
+  const mainSnap = await mainRef.get();
+
+  if(mainSnap.exists){
+    const data = mainSnap.data() || {};
+    const keys = readKeysFromPracticeHistoryData(data);
+    return {
+      keys,
+      revision:Number(data.revision || 0),
+      migrated:false
+    };
+  }
+
+  // 舊版相容：過去 practiceHistory 是「每題一份文件」。
+  // 第一次遇到舊資料時，合併為 practicedKeys 陣列，再刪除舊文件。
+  const legacySnap = await practiceHistoryCollectionRef().get();
+  const keys = new Set();
+  const legacyDocs = [];
+
+  legacySnap.forEach(doc => {
+    if(doc.id === PRACTICE_HISTORY_DOC_ID) return;
+    const data = doc.data() || {};
+    const key = String(data.questionNo || "").trim();
+    if(key) keys.add(key);
+    legacyDocs.push(doc);
+  });
+
+  if(!legacyDocs.length){
+    return {keys, revision:0, migrated:false};
+  }
+
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  await mainRef.set({
+    practicedKeys:[...keys],
+    practicedCount:keys.size,
+    revision:1,
+    schemaVersion:PRACTICE_HISTORY_SCHEMA_VERSION,
+    migratedFromLegacy:true,
+    migratedAt:now,
+    updatedAt:now
+  }, {merge:true});
+
+  try{
+    const deleted = await deleteLegacyPracticeHistoryDocs(legacyDocs);
+    console.info(`已將 ${keys.size} 個舊版已練題號合併到單一文件，並刪除 ${deleted} 份舊文件。`);
+  }catch(cleanupError){
+    // 合併完成後，即使舊文件刪除失敗，新版仍可正常運作；只會暫時多占一些儲存空間。
+    console.warn("舊版 practiceHistory 文件清理失敗，但單一文件已建立。", cleanupError);
+  }
+
+  return {keys, revision:1, migrated:true};
+}
+
+async function getPracticeHistoryKeys(force=false){
+  if(!currentUser || !db) return new Set();
+  if(!force && practiceHistoryKeyCache instanceof Set) return practiceHistoryKeyCache;
+
+  const result = await loadOrMigratePracticeHistory();
+  practiceHistoryKeyCache = result.keys;
+  practiceHistoryRevisionCache = result.revision;
+  return practiceHistoryKeyCache;
+}
+
+async function savePracticeHistoryIfLoggedIn(){
+  const newKeys = buildPracticeHistoryKeys();
+  if(!newKeys.length) return true;
+
+  const box = $("weakPoint");
+  if(!currentUser || !db){
+    if(box) box.innerHTML += `<br><span class="muted small">目前是訪客模式，本次已練習題目不會寫入雲端紀錄。</span>`;
+    return true;
+  }
+
+  try{
+    // 若是舊會員且尚未建立 main 文件，先做一次自動遷移。
+    if(!(practiceHistoryKeyCache instanceof Set)){
+      await getPracticeHistoryKeys(true);
+    }
+
+    const mainRef = practiceHistoryMainRef();
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+
+    // 每回測驗只交易更新一份文件：1 次文件讀取 + 1 次文件寫入。
+    // Transaction 可避免兩台裝置同時完成測驗時互相覆蓋 practicedKeys。
+    const result = await db.runTransaction(async tx => {
+      const snap = await tx.get(mainRef);
+      const oldData = snap.exists ? (snap.data() || {}) : {};
+      const mergedKeys = readKeysFromPracticeHistoryData(oldData);
+      const beforeCount = mergedKeys.size;
+
+      newKeys.forEach(key => mergedKeys.add(key));
+
+      const revision = Number(oldData.revision || 0) + 1;
+      const mergedArray = [...mergedKeys];
+
+      // 單一文件仍有容量上限；保留安全距離，避免題庫極度擴充後才在 Firestore 端失敗。
+      // 目前只保存短題號，數千題通常仍遠低於此安全線。
+      const estimatedBytes = new Blob([JSON.stringify(mergedArray)]).size;
+      if(estimatedBytes > 850000){
+        throw new Error("已練習題號集合接近 Firestore 單一文件容量上限，請改用分桶儲存模式。");
+      }
+
+      tx.set(mainRef, {
+        practicedKeys:mergedArray,
+        practicedCount:mergedArray.length,
+        revision,
+        schemaVersion:PRACTICE_HISTORY_SCHEMA_VERSION,
+        lastQuizQuestionCount:newKeys.length,
+        lastPracticedAt:now,
+        updatedAt:now
+      }, {merge:true});
+
+      return {
+        keys:mergedArray,
+        revision,
+        uniqueNewCount:mergedArray.length - beforeCount
+      };
+    });
+
+    practiceHistoryKeyCache = new Set(result.keys);
+    practiceHistoryRevisionCache = result.revision;
+
+    if(memberStatsCache){
+      memberStatsCache.practicedCount = countPracticeKeysForSubject(practiceHistoryKeyCache);
+      memberStatsCache.cachedAt = Date.now();
+      renderMemberStudyStats(memberStatsCache);
+    }else{
+      scheduleMemberStatsRefresh();
+    }
+
+    if(box){
+      const currentSubjectCount = countPracticeKeysForSubject(practiceHistoryKeyCache);
+      box.innerHTML += `<br><span class="muted small">已同步「${escapeHtml(activeSubjectName())}」本回 ${newKeys.length} 題；新增不重複題目 ${result.uniqueNewCount} 題，目前此科目累積 ${currentSubjectCount} 題。</span>`;
+    }
+    await refreshVisibleScopeStudyPanels(false);
+    return true;
+  }catch(e){
+    console.error(e);
+    if(box) box.innerHTML += `<br><span class="muted small">已練習紀錄同步失敗：${escapeHtml(firebaseErrorMessage(e))}</span>`;
+    return false;
+  }
+}
+
+async function deleteCollectionDocs(collectionRef, batchSize = 450){
+  let deleted = 0;
+
+  while(true){
+    const snap = await collectionRef.limit(batchSize).get();
+    if(snap.empty) break;
+
+    const batch = db.batch();
+    snap.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+
+    deleted += snap.size;
+    if(snap.size < batchSize) break;
+  }
+
+  return deleted;
+}
+
+async function clearPracticeHistory(){
+  if(!currentUser || !db){
+    alert("請先登入會員，才可以清除已練習紀錄。");
+    return;
+  }
+
+  const subjectName = activeSubjectName();
+  const ok = confirm(`確定要清除「${subjectName}」的已練習題目紀錄嗎？\n\n其他科目的練習紀錄、排行榜、成績與錯題不會被刪除。`);
+  if(!ok) return;
+
+  try{
+    const ref = practiceHistoryMainRef();
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? (snap.data() || {}) : {};
+      const oldKeys = readKeysFromPracticeHistoryData(data);
+      const keptKeys = [...oldKeys].filter(key => !isPracticeKeyForSubject(key));
+      tx.set(ref, {
+        practicedKeys:keptKeys,
+        practicedCount:keptKeys.length,
+        revision:Number(data.revision || 0) + 1,
+        schemaVersion:PRACTICE_HISTORY_SCHEMA_VERSION,
+        lastClearedSubjectKey:activeSubjectKey(),
+        lastClearedSubjectName:subjectName,
+        clearedAt:firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+      practiceHistoryKeyCache = new Set(keptKeys);
+    });
+
+    practiceHistoryRevisionCache++;
+    invalidateMemberStatsCache();
+    alert(`已清除「${subjectName}」的已練習題號，其他科目不受影響。`);
+    await refreshMemberStudyStats(true);
+    await refreshVisibleScopeStudyPanels(false);
+    if($("loadMsg") && bank.length){
+      $("loadMsg").textContent = `已清除「${subjectName}」練習紀錄。此科目題庫共 ${bank.length} 題，可重新抽題。`;
+    }
+  }catch(e){
+    console.error(e);
+    alert("清除已練習紀錄失敗：" + firebaseErrorMessage(e));
+  }
+}
+
+async function clearWrongStats(){
+  if(!currentUser || !db){
+    alert("請先登入會員，才可以刪除錯題統計。");
+    return;
+  }
+
+  const subjectName = activeSubjectName();
+  const ok = confirm(`確定要刪除「${subjectName}」的錯題統計嗎？\n\n其他科目的錯題、排行榜、成績與已練習題目不會被刪除。`);
+  if(!ok) return;
+
+  try{
+    await ensureLegacyWrongStatsSubjectMigration();
+    const ref = db.collection("users").doc(currentUser.uid).collection("wrongStats");
+    const snap = await ref.where("subjectKey", "==", activeSubjectKey()).get();
+    let deleted = 0;
+    const docs = [];
+    snap.forEach(doc => docs.push(doc));
+    for(let i = 0; i < docs.length; i += 450){
+      const batch = db.batch();
+      docs.slice(i, i + 450).forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      deleted += Math.min(450, docs.length - i);
+    }
+
+    await db.collection("users").doc(currentUser.uid).collection("stats").doc(statsDocIdForSubject()).set({
+      subjectKey:activeSubjectKey(),
+      subjectName,
+      activeWrongCount:0,
+      masteredWrongCount:0,
+      statsVersion:"read_optimized_v2",
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    }, {merge:true});
+    invalidateMemberStatsCache();
+    alert(`已刪除「${subjectName}」共 ${deleted} 筆錯題統計。`);
+    await refreshMemberStudyStats(true);
+  }catch(e){
+    console.error(e);
+    alert("刪除錯題統計失敗：" + firebaseErrorMessage(e));
+  }
+}
+
+
+function getDisplayNameForLeaderboard(){
+  // 排行榜顯示名稱優先順序：
+  // 1. 目前登入時 profile 內的 displayName
+  // 2. Firebase Auth 的 displayName
+  // 3. profile 內的 userName
+  // 4. email 前綴
+  if(currentProfile && currentProfile.displayName) return String(currentProfile.displayName);
+  if(currentUser && currentUser.displayName) return String(currentUser.displayName);
+  if(currentProfile && currentProfile.userName) return String(currentProfile.userName);
+  if(currentUser && currentUser.email) return String(currentUser.email).split("@")[0];
+  return "匿名會員";
+}
+
+function normalizeLeaderboardName(name){
+  const cleaned = String(name || "匿名會員")
+    .trim()
+    .replace(/\s+/g, " ");
+  return cleaned || "匿名會員";
+}
+
+function leaderboardNameKey(name){
+  // 用名稱產生穩定 key；同一個 uid + 同一個名稱會累積到同一筆。
+  // 換不同名稱會變成另一筆，不會覆蓋原本名稱的排行榜資料。
+  return normalizeLeaderboardName(name).toLocaleLowerCase("zh-Hant");
+}
+
+function safeLeaderboardDocId(uid, nameKey, subject = activeSubject){
+  const subjectPart = subject && subject.legacyKeyMode ? "" : `__${subject ? subject.storageKey || subject.id : "default"}`;
+  const raw = `${uid || "unknown"}${subjectPart}__${nameKey || "anonymous"}`;
+  return "lb_" + encodeURIComponent(raw).replace(/%/g, "_").slice(0, 1400);
+}
+
+
+function calculateEarnedRankPoints({score=0, total=0, rate=0} = {}){
+  // 累積積分規則：本次測驗題數 >= 10 題才加分。
+  // 公式：本次新增積分 = 本次分數 * 45% + 答對率 * 35% + 題數加成 * 20%。
+  // 題數加成最多採 100 題計算，所以一次 100 題、滿分、100% 正確率時最多 +100 分。
+  const safeScore = Math.max(0, Number(score || 0));
+  const safeTotal = Math.max(0, Number(total || 0));
+  const safeRate = Math.max(0, Number(rate || 0));
+
+  if(safeTotal < 10){
+    return {
+      eligible:false,
+      points:0,
+      scorePart:0,
+      ratePart:0,
+      questionPart:0,
+      reason:"本次未滿 10 題，不增加排行榜積分。"
+    };
+  }
+
+  const scorePart = safeScore * 0.45;
+  const ratePart = safeRate * 0.35;
+  const questionPart = Math.min(safeTotal, 100) * 0.20;
+  const points = Math.round((scorePart + ratePart + questionPart) * 10) / 10;
+
+  return {
+    eligible:true,
+    points,
+    scorePart:Math.round(scorePart * 10) / 10,
+    ratePart:Math.round(ratePart * 10) / 10,
+    questionPart:Math.round(questionPart * 10) / 10,
+    reason:"本次符合 10 題以上門檻，已列入累積積分。"
+  };
+}
+
+function totalPointsFromRow(row){
+  // 新版使用 totalPoints。舊資料若尚未有 totalPoints，暫以舊 rankScore 顯示，完成新測驗後會自動轉入累積積分欄位。
+  if(row && row.totalPoints !== undefined) return Number(row.totalPoints || 0);
+  return Number(row && row.rankScore || 0);
+}
+
+async function saveExamResultIfLoggedIn(result){
+  if(!currentUser || !db) return;
+
+  const box = $("weakPoint");
+  const displayName = normalizeLeaderboardName(getDisplayNameForLeaderboard());
+  const nameKey = leaderboardNameKey(displayName);
+  const leaderboardDocId = safeLeaderboardDocId(currentUser.uid, nameKey, activeSubject);
+
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  const numericScore = Number(result.score || 0);
+  const numericTotal = Number(result.total || 0);
+  const numericCorrect = Number(result.correctCount || 0);
+  const numericWrong = Number(result.wrongCount || 0);
+  const numericRate = Number(result.rate || 0);
+  const pointInfo = calculateEarnedRankPoints({score:numericScore, total:numericTotal, rate:numericRate});
+
+  // 重要：排行榜不再只用 uid 當文件 ID。
+  // 舊版：leaderboard/{uid} → 同一個帳號換名稱會互相覆蓋。
+  // 新版：leaderboard/{uid + displayNameKey} → 同一帳號不同名稱各自統計。
+  const publicRef = db.collection("leaderboard").doc(leaderboardDocId);
+  const privateRef = db.collection("users").doc(currentUser.uid).collection("examStatsByName").doc(safeDocId(`${activeSubjectKey()}::${nameKey}`));
+  const latestPrivateRef = db.collection("users").doc(currentUser.uid).collection("examStats").doc("main");
+
+  try{
+    let finalTotalPoints = 0;
+
+    await db.runTransaction(async tx => {
+      const publicSnap = await tx.get(publicRef);
+      const old = publicSnap.exists ? (publicSnap.data() || {}) : {};
+      const oldAttempts = Number(old.attemptCount || 0);
+      const oldTotalScore = Number(old.totalScore || 0);
+      const oldEligibleAttempts = Number(old.eligibleAttemptCount || 0);
+      const oldTotalPoints = totalPointsFromRow(old);
+
+      const newAttempts = oldAttempts + 1;
+      const newEligibleAttempts = oldEligibleAttempts + (pointInfo.eligible ? 1 : 0);
+      const newTotalScore = oldTotalScore + numericScore;
+      const bestScore = Math.max(Number(old.bestScore || 0), numericScore);
+      const avgScore = Math.round((newTotalScore / newAttempts) * 10) / 10;
+      finalTotalPoints = Math.round((oldTotalPoints + pointInfo.points) * 10) / 10;
+
+      const payload = {
+        uid: currentUser.uid,
+        ownerUid: currentUser.uid,
+        leaderboardDocId,
+        displayName,
+        displayNameKey: nameKey,
+        subjectKey:activeSubjectKey(),
+        subjectName:activeSubjectName(),
+        providerId: currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].providerId : "",
+        attemptCount: newAttempts,
+        eligibleAttemptCount: newEligibleAttempts,
+        totalScore: newTotalScore,
+        avgScore,
+        bestScore,
+        totalPoints: finalTotalPoints,
+        rankScore: finalTotalPoints,
+        rankScoreVersion: "cumulative_v2_min10_score45_rate35_questions20",
+        lastEarnedPoints: pointInfo.points,
+        lastPointEligible: pointInfo.eligible,
+        lastPointReason: pointInfo.reason,
+        lastPointScorePart: pointInfo.scorePart,
+        lastPointRatePart: pointInfo.ratePart,
+        lastPointQuestionPart: pointInfo.questionPart,
+        lastScore: numericScore,
+        lastTotal: numericTotal,
+        lastCorrect: numericCorrect,
+        lastWrong: numericWrong,
+        lastRate: numericRate,
+        lastMode: result.mode || "",
+        lastExamAt: now,
+        updatedAt: now
+      };
+
+      if(!publicSnap.exists){
+        payload.createdAt = now;
+      }
+
+      tx.set(publicRef, payload, {merge:true});
+      tx.set(privateRef, payload, {merge:true});
+      tx.set(latestPrivateRef, {
+        uid: currentUser.uid,
+        latestLeaderboardDocId: leaderboardDocId,
+        latestDisplayName: displayName,
+        latestSubjectKey:activeSubjectKey(),
+        latestSubjectName:activeSubjectName(),
+        latestScore: numericScore,
+        latestTotal: numericTotal,
+        latestCorrect: numericCorrect,
+        latestWrong: numericWrong,
+        latestRate: numericRate,
+        latestEarnedPoints: pointInfo.points,
+        latestTotalPoints: finalTotalPoints,
+        latestPointEligible: pointInfo.eligible,
+        latestPointReason: pointInfo.reason,
+        latestMode: result.mode || "",
+        lastExamAt: now,
+        updatedAt: now
+      }, {merge:true});
+    });
+
+    if(box){
+      if(pointInfo.eligible){
+        box.innerHTML += `<br><span class="muted small">已同步「${escapeHtml(activeSubjectName())}」排行榜：${escapeHtml(displayName)} 本次 +${pointInfo.points} 分，累積 ${finalTotalPoints} 分。</span>`;
+      }else{
+        box.innerHTML += `<br><span class="muted small">已同步成績，但本次只有 ${numericTotal} 題，未滿 10 題，所以排行榜積分不增加。</span>`;
+      }
+    }
+  }catch(e){
+    console.error(e);
+    if(box) box.innerHTML += `<br><span class="muted small">成績排行榜同步失敗：${escapeHtml(firebaseErrorMessage(e))}</span>`;
+  }
+}
+
+function showLeaderboardBox(){
+  const box = $("leaderboardBox");
+  if(box) box.classList.remove("hidden");
+}
+
+async function loadLeaderboard(){
+  if(!db){
+    alert("Firebase 尚未設定，無法讀取排行榜。");
+    return;
+  }
+
+  showLeaderboardBox();
+  if($("leaderboardTitle")) $("leaderboardTitle").textContent = `${activeSubjectName()}｜累積積分排行榜`;
+  const table = $("leaderboardTable");
+  if(table) table.innerHTML = "排行榜讀取中...";
+
+  try{
+    // 各科目分開排行。非舊版科目優先使用 subjectKey 查詢；若缺少複合索引，退回單一科目讀取後前端排序。
+    let orderField = "totalPoints";
+    const leaderboardRef = db.collection("leaderboard");
+    let topRows = [];
+
+    if(activeSubject && activeSubject.legacyKeyMode){
+      let topSnap;
+      try{
+        topSnap = await leaderboardRef.orderBy("totalPoints", "desc").limit(100).get();
+      }catch(orderError){
+        orderField = "rankScore";
+        topSnap = await leaderboardRef.orderBy("rankScore", "desc").limit(100).get();
+      }
+      topSnap.forEach(doc => {
+        const data = doc.data() || {};
+        if(!data.subjectKey || data.subjectKey === activeSubjectKey()) topRows.push({...data, _docId:doc.id});
+      });
+    }else{
+      try{
+        const topSnap = await leaderboardRef
+          .where("subjectKey", "==", activeSubjectKey())
+          .orderBy("totalPoints", "desc")
+          .limit(30)
+          .get();
+        topSnap.forEach(doc => topRows.push({...(doc.data() || {}), _docId:doc.id}));
+      }catch(indexError){
+        console.warn("科目排行榜複合索引尚未建立，改用科目查詢後前端排序。", indexError);
+        const topSnap = await leaderboardRef.where("subjectKey", "==", activeSubjectKey()).limit(300).get();
+        topSnap.forEach(doc => topRows.push({...(doc.data() || {}), _docId:doc.id}));
+      }
+    }
+
+    topRows.forEach(r => {
+      r._totalPoints = totalPointsFromRow(r);
+      r._lastEarnedPoints = Number(r.lastEarnedPoints || 0);
+    });
+    topRows.sort((a,b) => Number(b._totalPoints || 0) - Number(a._totalPoints || 0));
+    topRows = topRows.slice(0, 30);
+
+    const currentDisplayName = normalizeLeaderboardName(getDisplayNameForLeaderboard());
+    const currentNameKey = leaderboardNameKey(currentDisplayName);
+    let myRow = null;
+    let myRank = null;
+
+    if(currentUser){
+      const myDocId = safeLeaderboardDocId(currentUser.uid, currentNameKey, activeSubject);
+      const mySnap = await db.collection("leaderboard").doc(myDocId).get();
+      if(mySnap.exists){
+        myRow = {...(mySnap.data() || {}), _docId: mySnap.id};
+        myRow._totalPoints = totalPointsFromRow(myRow);
+        myRow._lastEarnedPoints = Number(myRow.lastEarnedPoints || 0);
+
+        try{
+          if(activeSubject && !activeSubject.legacyKeyMode){
+            const aheadQuery = db.collection("leaderboard")
+              .where("subjectKey", "==", activeSubjectKey())
+              .where(orderField, ">", Number(myRow[orderField] !== undefined ? myRow[orderField] : myRow._totalPoints || 0));
+            const aheadCount = await getAggregateCount(aheadQuery);
+            myRank = aheadCount + 1;
+          }else{
+            const aheadRows = topRows.filter(row => Number(row._totalPoints || 0) > Number(myRow._totalPoints || 0));
+            myRank = aheadRows.length + 1;
+          }
+        }catch(rankError){
+          console.warn("我的科目名次 count() 計算失敗，改用前三十名位置估算。", rankError);
+          const indexInTop30 = topRows.findIndex(r => r._docId === myRow._docId);
+          myRank = indexInTop30 >= 0 ? indexInTop30 + 1 : null;
+        }
+      }
+    }
+
+    const myRankHtml = currentUser
+      ? (myRow ? `
+        <div class="myRankBox">
+          <div class="myRankTitle">第一行｜我的目前名次</div>
+          <div class="myRankLine">
+            <span class="rankBadge ${myRank === 1 ? "top1" : (myRank === 2 ? "top2" : (myRank === 3 ? "top3" : ""))}">${myRank || "30+"}</span>
+            <span class="myRankName">${escapeHtml(myRow.displayName || currentDisplayName || "匿名會員")}</span>
+            <span>目前累積 <b>${Number(myRow._totalPoints || 0)}</b> 分</span>
+          </div>
+          <div class="myRankStats">
+            <span class="myRankStat">本次新增：${myRow.lastPointEligible === false ? "未滿 10 題" : "+" + Number(myRow._lastEarnedPoints || 0) + " 分"}</span>
+            <span class="myRankStat">有效測驗：${Number(myRow.eligibleAttemptCount || 0)} 回</span>
+            <span class="myRankStat">測驗次數：${Number(myRow.attemptCount || 0)} 回</span>
+            <span class="myRankStat">平均分：${Number(myRow.avgScore || 0)} 分</span>
+            <span class="myRankStat">最高分：${Number(myRow.bestScore || 0)} 分</span>
+          </div>
+        </div>` : `
+        <div class="myRankBox">
+          <div class="myRankTitle">第一行｜我的目前名次</div>
+          <div class="myRankLine">你目前還沒有排行榜紀錄。完成 10 題以上測驗後，這裡會顯示你的名次。</div>
+        </div>`)
+      : `
+        <div class="myRankBox">
+          <div class="myRankTitle">第一行｜我的目前名次</div>
+          <div class="myRankLine">登入後可顯示你自己的目前名次。</div>
+        </div>`;
+
+    if(!topRows.length){
+      if(table) table.innerHTML = `${myRankHtml}<div class="top30Title">第二行｜前三十名排行榜</div><p class='muted'>目前還沒有排行榜資料。會員登入後完成 10 題以上測驗，就會開始累積積分。</p>`;
+      return;
+    }
+
+    const html = `
+      ${myRankHtml}
+      <div class="top30Title">第二行｜前三十名排行榜</div>
+      <table class="leaderboardTable">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>使用者</th>
+            <th>累積積分</th>
+            <th>本次新增</th>
+            <th>有效測驗</th>
+            <th>測驗次數</th>
+            <th>平均分</th>
+            <th>最高分</th>
+            <th>最近表現</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${topRows.map((r,i)=>{
+            const rankClass = i === 0 ? "top1" : (i === 1 ? "top2" : (i === 2 ? "top3" : ""));
+            const isMe = currentUser && r.uid === currentUser.uid && r.displayNameKey === currentNameKey;
+            const name = escapeHtml(r.displayName || "匿名會員");
+            const eligibleText = Number(r.eligibleAttemptCount || 0);
+            const totalAttemptText = Number(r.attemptCount || 0);
+            const lastPointText = r.lastPointEligible === false
+              ? "未滿 10 題"
+              : `+${Number(r._lastEarnedPoints || 0)} 分`;
+            return `<tr class="${isMe ? "currentUserRow" : ""}">
+              <td><span class="rankBadge ${rankClass}">${i+1}</span></td>
+              <td>
+                <div class="leaderName">${isMe ? "⭐ " : ""}${name}</div>
+                <div class="leaderMeta">${isMe ? "這是你目前名稱的紀錄" : "會員名稱紀錄"}</div>
+              </td>
+              <td><b>${Number(r._totalPoints || 0)}</b> 分</td>
+              <td>${lastPointText}</td>
+              <td><b>${eligibleText}</b> 回</td>
+              <td>${totalAttemptText} 回</td>
+              <td>${Number(r.avgScore || 0)} 分</td>
+              <td>${Number(r.bestScore || 0)} 分</td>
+              <td>${Number(r.lastScore || 0)} / ${Number(r.lastTotal || TOTAL_SCORE)} 分｜${Number(r.lastRate || 0)}%</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+      <p class="muted small leaderboardNote">註：新版排行榜不再整包讀取所有會員，而是只讀前三十名與自己的紀錄。我的名次用 count() 聚合估算前面有多少筆分數更高的紀錄；同分排序會以排行榜列出的前 30 名順序為準。本次新增積分只計入 10 題以上測驗，公式為「分數 × 45% + 答對率 × 35% + 題數加成 × 20%」。</p>
+    `;
+    if(table) table.innerHTML = html;
+  }catch(e){
+    console.error(e);
+    if(table) table.innerHTML = `<p class="bad">排行榜讀取失敗：${escapeHtml(firebaseErrorMessage(e))}</p>`;
+  }
+}
+
+async function saveWrongStatsIfLoggedIn(){
+  const payload = buildWrongStatsPayload();
+  if(!payload.length) return;
+
+  const box = $("weakPoint");
+  if(!currentUser || !db){
+    if(box) box.innerHTML += `<br><span class="muted small">目前是訪客模式，本次錯題只顯示在畫面中，不會寫入雲端紀錄。</span>`;
+    return;
+  }
+
+  try{
+    let saved = 0;
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+
+    // 舊版每一題錯題都 runTransaction + tx.get(ref)，會造成「每題至少 1 次讀取」。
+    // 新版直接 batch.set + FieldValue.increment，不讀舊文件即可累加 wrongCount。
+    for(let i = 0; i < payload.length; i += 450){
+      const chunk = payload.slice(i, i + 450);
+      const batch = db.batch();
+
+      chunk.forEach(item => {
+        const ref = db.collection("users").doc(currentUser.uid).collection("wrongStats").doc(safeDocId(item.questionNo));
+        batch.set(ref, {
+          questionNo: item.questionNo,
+          subjectKey:item.subjectKey || activeSubjectKey(),
+          subjectName:item.subjectName || activeSubjectName(),
+          scope: item.scope,
+          type: item.type,
+          lastSelected: item.lastSelected,
+          correctAnswer: item.correctAnswer,
+          wrongCount: firebase.firestore.FieldValue.increment(1),
+          mastered: false,
+          lastWrongAt: now,
+          updatedAt: now
+        }, {merge:true});
+      });
+
+      await batch.commit();
+      saved += chunk.length;
+    }
+
+    // 錯題是否「新增加一題」不做逐題讀取判斷，避免讀取數爆掉。
+    // 這裡只排程一次狀態刷新；refreshMemberStudyStats 會用 count() 聚合，不會整包讀 wrongStats。
+    invalidateMemberStatsCache();
+    scheduleMemberStatsRefresh();
+
+    if(box) box.innerHTML += `<br><span class="muted small">已同步 ${saved} 筆錯題統計到 Firestore。錯題數會用 count() 聚合查詢刷新，避免整包讀取。</span>`;
+  }catch(e){
+    console.error(e);
+    if(box) box.innerHTML += `<br><span class="muted small">錯題同步失敗：${escapeHtml(firebaseErrorMessage(e))}</span>`;
+  }
+}
+
+async function practiceHistoryWrong(){
+  if(!currentUser || !db){
+    alert("請先登入會員，才可以讀取你的歷史錯題。訪客模式不會紀錄歷史錯題。");
+    return;
+  }
+  if(!bank.length){
+    alert("目前科目題庫尚未讀取成功，請先重新讀取題庫。");
+    return;
+  }
+
+  try{
+    await ensureLegacyWrongStatsSubjectMigration();
+    const ref = db.collection("users").doc(currentUser.uid).collection("wrongStats");
+    let snap;
+    try{
+      snap = await ref.where("subjectKey", "==", activeSubjectKey()).get();
+    }catch(subjectQueryError){
+      console.warn("科目錯題查詢失敗，改為讀取後過濾。", subjectQueryError);
+      snap = await ref.get();
+    }
+
+    const stats = [];
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      const belongs = data.subjectKey
+        ? data.subjectKey === activeSubjectKey()
+        : !!(activeSubject && activeSubject.legacyKeyMode);
+      if(belongs && data.mastered !== true) stats.push(data);
+    });
+
+    if(!stats.length){
+      alert(`「${activeSubjectName()}」目前沒有歷史錯題紀錄，或錯題都已標記掌握。`);
+      return;
+    }
+
+    stats.sort((a,b) => Number(b.wrongCount || 0) - Number(a.wrongCount || 0));
+    const itemMap = new Map(bank.map(item => [getQuestionKey(item), item]));
+    const wrongItems = [];
+    const missing = [];
+    stats.forEach(stat => {
+      const key = String(stat.questionNo || "").trim();
+      const item = itemMap.get(key);
+      if(item) wrongItems.push(item);
+      else missing.push(key);
+    });
+
+    if(!wrongItems.length){
+      alert(`「${activeSubjectName()}」有歷史錯題紀錄，但目前分頁找不到對應題號。請確認題號沒有改過。\n找不到：${missing.slice(0,10).join("、")}`);
+      return;
+    }
+
+    if(missing.length){
+      alert(`有 ${missing.length} 題歷史錯題在目前「${activeSubjectName()}」題庫找不到，先練找得到的 ${wrongItems.length} 題。`);
+    }
+    startQuiz(wrongItems);
+  }catch(e){
+    alert("讀取歷史錯題失敗：" + firebaseErrorMessage(e));
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+$("startBtn").onclick = startQuiz;
+$("reloadBtn").onclick = loadBank;
+$("submitBtn").onclick = submitAnswer;
+$("nextBtn").onclick = nextQuestion;
+$("againBtn").onclick = () => { $("finish").classList.add("hidden"); $("review").classList.add("hidden"); $("setup").classList.remove("hidden"); };
+$("reviewBtn").onclick = reviewWrong;
+$("practiceWrongBtn").onclick = practiceWrong;
+$("historyWrongBtn").onclick = practiceHistoryWrong;
+$("historyWrongBtnFinish").onclick = practiceHistoryWrong;
+$("leaderboardBtn").onclick = loadLeaderboard;
+$("leaderboardBtnFinish").onclick = loadLeaderboard;
+$("clearPracticeHistoryBtn").onclick = clearPracticeHistory;
+$("clearPracticeHistoryBtnFinish").onclick = clearPracticeHistory;
+$("clearWrongStatsBtn").onclick = clearWrongStats;
+$("clearWrongStatsBtnFinish").onclick = clearWrongStats;
+$("reloadLeaderboardBtn").onclick = loadLeaderboard;
+$("hideLeaderboardBtn").onclick = () => $("leaderboardBox").classList.add("hidden");
+$("showScopeProgressBtn").onclick = toggleSelectedScopeProgress;
+$("showPracticedNumbersBtn").onclick = togglePracticedQuestionNumbers;
+$("refreshMemberStatsBtn").onclick = async () => {
+  await refreshMemberStudyStats(true);
+  await refreshVisibleScopeStudyPanels(false);
+};
+$("loginBtn").onclick = loginMember;
+$("registerBtn").onclick = registerMember;
+$("googleLoginBtn").onclick = loginWithGoogle;
+$("logoutBtn").onclick = logoutMember;
+$("loginPassInput").addEventListener("keydown", e => { if(e.key === "Enter") loginMember(); });
+$("themeToggleBtn").onclick = toggleTheme;
+$("selectAllScopesBtn").onclick = () => setAllScopes(true);
+$("clearScopesBtn").onclick = () => setAllScopes(false);
+$("countInput").onchange = syncCountInputByScope;
+$("subjectInput").onchange = e => changeSubject(e.target.value);
+
+initTheme();
+renderSubjectOptions();
+renderQuestionCountOptions();
+initFirebase();
+loadBank();
+</script>
+</body>
+</html>
