@@ -1,18 +1,25 @@
-googleSheet: {
-  sheetId: "1gQM_dJQLHQWz82vJUHYgbILQUtGwjITZuB6AO8pWGA4",
+window.APP_CONFIG = {
+  googleSheet: {
+    sheetId: "1sd7HtAS6h6ZoYaUFrIQBxc7VpLNItAAesNOkMnWyrZc",
 
-  // 需填入已啟用 Google Sheets API 的 API Key
-  apiKey: "你的_GOOGLE_API_KEY",
+    apiKey: "",
 
-  // 留空會預設選擇第一個分頁
-  // 也可填分頁名稱，例如："自然"
-  defaultSubjectId: "",
+    // 關閉自動搜尋分頁
+    autoDiscoverSubjects: false,
 
-  autoDiscoverSubjects: true,
+    defaultSubjectId: "social",
 
-  // 不想顯示的分頁
-  excludeSheetNames: ["設定", "說明"],
-
-  // 自動讀取失敗時的手動備援清單
-  subjects: []
-}
+    subjects: [
+      {
+        id: "1294771581",
+        name: "自然",
+        sheetName: "自然"
+      },
+      {
+        id: "1713008525",
+        name: "社會",
+        sheetName: "社會"
+      }
+    ]
+  }
+};
