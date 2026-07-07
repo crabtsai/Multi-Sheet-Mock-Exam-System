@@ -85,7 +85,7 @@
     code{background:#f3f4f6;border:1px solid var(--line);border-radius:6px;padding:1px 5px}
 
 
-    .topFollowBar{display:flex;justify-content:flex-end;margin-bottom:10px}
+    .topFollowBar{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
     .fbFollowLink{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#1e40af;text-decoration:none;font-size:13px;font-weight:900;border:1px solid #bfdbfe}
     .fbFollowLink:hover{background:#dbeafe;border-color:#93c5fd}
     .memberStatsBox{margin:0 0 14px;padding:12px;border-radius:16px;background:#f8fbff;border:1px solid #bfdbfe}
@@ -226,6 +226,7 @@
   <div class="card">
     <div class="topFollowBar">
       <a class="fbFollowLink" href="https://www.facebook.com/profile.php?id=61574384431225" target="_blank" rel="noopener noreferrer">👍 追蹤 FB｜雲橫介工程師</a>
+      <a class="fbFollowLink" href="https://line.me/S/shop/sticker/author/3564401/top?lang=zh-Hant&amp;utm_source=gnsh_staut" target="_blank" rel="noopener noreferrer">🦀 LINE 貼圖一覽</a>
     </div>
     <div class="titleRow">
       <h1 id="appTitle">多科目模擬考練習｜Google Sheet + Firebase</h1>
@@ -233,7 +234,7 @@
     </div>
     <div class="muted">
       題庫來源：Google Sheet。題庫或模擬考系統如有問題，歡迎透過 FB 私訊回報，謝謝。<br>
-      喜歡的話，也可以按上方連結追蹤 FB、按讚分享；LINE 貼圖搜尋「胖蟹」，讓胖蟹貼圖為你發聲。
+      喜歡的話，也可以按上方連結追蹤 FB、按讚分享，或查看 LINE 貼圖一覽；讓胖蟹貼圖為你發聲。
     </div>
   </div>
 
@@ -428,7 +429,7 @@ const DEFAULT_APP_CONFIG = Object.freeze({
   },
   googleSheet: {
     // 只要更換這個 sheetId，就會自動讀取該試算表底下所有可見分頁。
-    sheetId: "",
+    sheetId: "1sd7HtAS6h6ZoYaUFrIQBxc7VpLNItAAesNOkMnWyrZc",
 
     // 必填：請填可使用 Google Sheets API 的瀏覽器 API Key。
     // Google Cloud Console → 啟用 Google Sheets API → 建立 API Key。
