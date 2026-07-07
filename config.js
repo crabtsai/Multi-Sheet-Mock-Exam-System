@@ -7,7 +7,7 @@ window.APP_CONFIG = {
     // 關閉自動搜尋分頁
     autoDiscoverSubjects: false,
 
-    defaultSubjectId: "social",
+    defaultSubjectId: "1294771581",
 
     subjects: [
       {
