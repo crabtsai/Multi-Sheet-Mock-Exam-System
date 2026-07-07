@@ -12,7 +12,7 @@ window.APP_CONFIG = {
 
   googleSheet: {
     // 多數科目都放在同一份試算表時，只需在這裡設定一次 sheetId。
-    sheetId: "1EEBoG6cWlhsnrkstmQakv2ZNJ7TymplYewcX30E3Khw",
+    sheetId: "1sd7HtAS6h6ZoYaUFrIQBxc7VpLNItAAesNOkMnWyrZc",
 
     // 網頁第一次開啟時預設選擇的科目 id。
     defaultSubjectId: "ipas-basic",
@@ -32,21 +32,21 @@ window.APP_CONFIG = {
       // 新增科目範例一：使用同一份試算表的另一個 gid。
       // 將 enabled 改成 true，並把 gid 改成該分頁網址 #gid= 後面的數字。
       {
-        id: "social",
-        name: "社會",
-        gid: "請填入社會分頁的gid",
-        description: "社會科題庫",
-        enabled: false
+        id: "nature",
+        name: "自然",
+        gid: "自然",
+        description: "自然科題庫",
+        enabled: True
       },
 
       // 新增科目範例二：也可直接用 Google Sheet 分頁名稱。
       // 分頁改名時，這裡也要跟著修改。
       {
-        id: "history",
-        name: "歷史",
-        sheetName: "歷史",
-        description: "歷史科題庫",
-        enabled: false
+        id: "society",
+        name: "社會",
+        sheetName: "社會",
+        description: "社會科題庫",
+        enabled: True
       },
 
       // 新增科目範例三：題庫也可以放在另一份 Google Sheet。
