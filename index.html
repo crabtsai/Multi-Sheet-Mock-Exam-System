@@ -70,6 +70,12 @@
     .titleRow{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
     .themeToggle{white-space:nowrap}
     .authStatus{padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:#f9fafb;line-height:1.6;font-size:14px;font-weight:700;margin-bottom:12px}
+    .memberTools{margin-top:10px;border:1px solid var(--line);border-radius:14px;background:#f9fafb;overflow:hidden}
+    .memberTools summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;cursor:pointer;font-weight:900;color:#1e40af;list-style:none;user-select:none}
+    .memberTools summary::-webkit-details-marker{display:none}
+    .memberTools summary::after{content:'＋';display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:#eef2ff;color:#1e40af;font-size:18px;font-weight:900;flex:0 0 auto}
+    .memberTools[open] summary::after{content:'－'}
+    .memberToolsBody{padding:0 12px 12px}
     .authStatus.loginOk{background:#ecfdf5;border-color:#86efac;color:#065f46}
     .authStatus.guest{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
     .authStatus.error{background:#fef2f2;border-color:#fca5a5;color:#991b1b}
@@ -167,6 +173,9 @@
     html[data-theme="dark"] .authStatus.loginOk{background:#052e16;border-color:#22c55e;color:#bbf7d0}
     html[data-theme="dark"] .authStatus.guest{background:#451a03;border-color:#92400e;color:#fed7aa}
     html[data-theme="dark"] .authStatus.error{background:#450a0a;border-color:#ef4444;color:#fecaca}
+    html[data-theme="dark"] .memberTools{background:#0b1220;border-color:var(--line)}
+    html[data-theme="dark"] .memberTools summary{color:#dbeafe}
+    html[data-theme="dark"] .memberTools summary::after{background:#1e3a8a;color:#dbeafe}
     html[data-theme="dark"] .configBox{background:#451a03;border-color:#92400e;color:#fed7aa}
     html[data-theme="dark"] code{background:#0b1220;border-color:var(--line)}
 
@@ -248,30 +257,36 @@
   <div id="memberBox" class="card">
     <h2>會員錯題紀錄</h2>
     <div id="authStatus" class="authStatus guest">Firebase 初始化中...</div>
-    <div class="authGrid">
-      <label>使用者帳號
-        <input id="loginUserInput" type="text" placeholder="例如：cloud001" autocomplete="username">
-      </label>
-      <label>密碼
-        <input id="loginPassInput" type="password" placeholder="請輸入密碼" autocomplete="current-password">
-      </label>
-      <label>顯示名稱 / 暱稱
-        <input id="registerDisplayInput" type="text" placeholder="註冊時可填，例如：雲橫介">
-      </label>
-    </div>
-    <div class="row" style="margin-top:12px">
-      <button id="loginBtn" type="button">登入並啟用紀錄</button>
-      <button class="ghost" id="registerBtn" type="button">建立帳號並登入</button>
-      <button class="ghost" id="googleLoginBtn" type="button">Google 登入</button>
-      <button class="secondary" id="logoutBtn" type="button" disabled>登出</button>
-      <button class="ghost" id="historyWrongBtn" type="button">錯題內容複習</button>
-      <button class="ghost" id="leaderboardBtn" type="button">查看排行榜</button>
-      <button class="warn" id="clearPracticeHistoryBtn" type="button">清除已練習紀錄</button>
-      <button class="warn" id="clearWrongStatsBtn" type="button">刪除錯題統計</button>
-    </div>
-    <div class="authHint muted small" style="margin-top:10px">
-      未登入就是訪客模式，可以練習但不會記錄雲端錯題與練習歷史。登入後，已練習題號仍集中保存在 Firestore 單一文件，但題目 Key 會加入科目識別；不同科目的題號、錯題與排行榜彼此分開。一般模擬考只排除目前科目已練過的題目。
-    </div>
+
+    <details class="memberTools">
+      <summary>會員登入與錯題功能</summary>
+      <div class="memberToolsBody">
+        <div class="authGrid">
+          <label>使用者帳號
+            <input id="loginUserInput" type="text" placeholder="例如：cloud001" autocomplete="username">
+          </label>
+          <label>密碼
+            <input id="loginPassInput" type="password" placeholder="請輸入密碼" autocomplete="current-password">
+          </label>
+          <label>顯示名稱 / 暱稱
+            <input id="registerDisplayInput" type="text" placeholder="註冊時可填，例如：雲橫介">
+          </label>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button id="loginBtn" type="button">登入並啟用紀錄</button>
+          <button class="ghost" id="registerBtn" type="button">建立帳號並登入</button>
+          <button class="ghost" id="googleLoginBtn" type="button">Google 登入</button>
+          <button class="secondary" id="logoutBtn" type="button" disabled>登出</button>
+          <button class="ghost" id="historyWrongBtn" type="button">錯題內容複習</button>
+          <button class="ghost" id="leaderboardBtn" type="button">查看排行榜</button>
+          <button class="warn" id="clearPracticeHistoryBtn" type="button">清除已練習紀錄</button>
+          <button class="warn" id="clearWrongStatsBtn" type="button">刪除錯題統計</button>
+        </div>
+        <div class="authHint muted small" style="margin-top:10px">
+          未登入就是訪客模式，可以練習但不會記錄雲端錯題與練習歷史。登入後，已練習題號仍集中保存在 Firestore 單一文件，但題目 Key 會加入科目識別；不同科目的題號、錯題與排行榜彼此分開。一般模擬考只排除目前科目已練過的題目。
+        </div>
+      </div>
+    </details>
   </div>
 
 
