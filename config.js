@@ -18,17 +18,6 @@ window.APP_CONFIG = {
     defaultSubjectId: "ipas-basic",
 
     subjects: [
-      {
-        id: "ipas-basic",
-        name: "AI 應用規劃師初級",
-        gid: "0",
-        description: "目前原始題庫分頁。",
-
-        // 只有原本已經上線、有舊會員紀錄的科目才設 true。
-        // 整份設定最多只能有一個 legacyKeyMode:true。
-        legacyKeyMode: true
-      },
-
       // 新增科目範例一：使用同一份試算表的另一個 gid。
       // 將 enabled 改成 true，並把 gid 改成該分頁網址 #gid= 後面的數字。
       {
