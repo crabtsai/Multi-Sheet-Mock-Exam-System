@@ -360,7 +360,7 @@
     </div>
 
     <p id="loadMsg" class="muted">正在讀取題庫...</p>
-    <p class="muted small">可在 <code>config.js</code> 的 <code>googleSheet.subjects</code> 新增科目。每個科目可使用同一份試算表的不同 gid，也可指定不同 sheetId。</p>
+    <p class="muted small">科目會自動依 <code>config.js</code> 的 <code>googleSheet.sheetId</code> 讀取所有可見分頁，分頁名稱即為科目名稱。</p>
   </div>
 
   <div id="quiz" class="card hidden">
@@ -427,21 +427,25 @@ const DEFAULT_APP_CONFIG = Object.freeze({
     emailDomain: "ipas-exam.local"
   },
   googleSheet: {
+    // 只要更換這個 sheetId，就會自動讀取該試算表底下所有可見分頁。
     sheetId: "1sd7HtAS6h6ZoYaUFrIQBxc7VpLNItAAesNOkMnWyrZc",
-    gid: "0",
-    defaultSubjectId: "ipas-basic",
-    subjects: [
-      {
-        id: "nature",
-        name: "自然",
-        gid: "自然",
-        description: "自然科題庫",
-        enabled: True
-      }
-      // 新增範例：
-      // {id:"social", name:"社會", gid:"123456789"},
-      // {id:"history", name:"歷史", sheetName:"歷史"}
-    ]
+
+    // 必填：請填可使用 Google Sheets API 的瀏覽器 API Key。
+    // Google Cloud Console → 啟用 Google Sheets API → 建立 API Key。
+    // 建議限制 HTTP referrer 與 Google Sheets API。
+    apiKey: "",
+
+    // 可填分頁名稱或自動產生的科目 id；留空代表使用第一個可見分頁。
+    defaultSubjectId: "",
+
+    // true：自動抓取全部可見分頁，分頁名稱直接當科目名稱。
+    autoDiscoverSubjects: true,
+
+    // 可選：不想顯示的分頁名稱，例如 ["設定", "說明", "排行榜"]。
+    excludeSheetNames: [],
+
+    // API 讀取失敗時才使用這裡的手動備援清單。
+    subjects: []
   },
   exam: {
     totalScore: 100,
@@ -509,6 +513,16 @@ function normalizeSubjectConfig(raw, index){
 }
 
 const EXTERNAL_GOOGLE_SHEET_CONFIG = EXTERNAL_APP_CONFIG.googleSheet || {};
+const GOOGLE_SHEETS_API_KEY = String(APP_CONFIG.googleSheet?.apiKey || "").trim();
+const AUTO_DISCOVER_SUBJECTS = APP_CONFIG.googleSheet?.autoDiscoverSubjects !== false;
+const EXCLUDED_SHEET_NAMES = new Set(
+  (Array.isArray(APP_CONFIG.googleSheet?.excludeSheetNames)
+    ? APP_CONFIG.googleSheet.excludeSheetNames
+    : [])
+    .map(name => String(name || "").trim())
+    .filter(Boolean)
+);
+
 const HAS_EXTERNAL_SUBJECT_LIST = Array.isArray(EXTERNAL_GOOGLE_SHEET_CONFIG.subjects);
 const HAS_LEGACY_EXTERNAL_SHEET_CONFIG = !HAS_EXTERNAL_SUBJECT_LIST && (
   Object.prototype.hasOwnProperty.call(EXTERNAL_GOOGLE_SHEET_CONFIG, "sheetId") ||
@@ -517,6 +531,7 @@ const HAS_LEGACY_EXTERNAL_SHEET_CONFIG = !HAS_EXTERNAL_SUBJECT_LIST && (
 const RAW_SUBJECTS = HAS_EXTERNAL_SUBJECT_LIST
   ? EXTERNAL_GOOGLE_SHEET_CONFIG.subjects
   : (HAS_LEGACY_EXTERNAL_SHEET_CONFIG ? [] : (DEFAULT_APP_CONFIG.googleSheet.subjects || []));
+
 function makeUniqueSubjectList(items){
   const usedIds = new Set();
   const usedStorageKeys = new Set();
@@ -547,21 +562,88 @@ function makeUniqueSubjectList(items){
   });
 }
 
-const SUBJECTS = makeUniqueSubjectList((RAW_SUBJECTS.length
-  ? RAW_SUBJECTS
-  : [{
-      id:"default",
-      name:String(APP_CONFIG.googleSheet?.name || "預設題庫"),
-      sheetId:DEFAULT_SHEET_ID,
-      gid:DEFAULT_GID,
-      legacyKeyMode:true
-    }])
-  .map(normalizeSubjectConfig)
-  .filter(subject => subject.enabled && subject.sheetId));
-const CONFIGURED_DEFAULT_SUBJECT_ID = normalizeSubjectId(
-  APP_CONFIG.googleSheet?.defaultSubjectId || (SUBJECTS[0] && SUBJECTS[0].id) || "default",
-  "default"
+function buildManualSubjectList(){
+  return makeUniqueSubjectList((RAW_SUBJECTS.length
+    ? RAW_SUBJECTS
+    : [{
+        id:"default",
+        name:String(APP_CONFIG.googleSheet?.name || "預設題庫"),
+        sheetId:DEFAULT_SHEET_ID,
+        gid:DEFAULT_GID,
+        legacyKeyMode:true
+      }])
+    .map(normalizeSubjectConfig)
+    .filter(subject => subject.enabled && subject.sheetId));
+}
+
+// 科目清單改為動態變數，初始化時可由 Google Sheets API 覆寫。
+let SUBJECTS = buildManualSubjectList();
+let CONFIGURED_DEFAULT_SUBJECT_ID = normalizeSubjectId(
+  APP_CONFIG.googleSheet?.defaultSubjectId || (SUBJECTS[0] && SUBJECTS[0].id) || "",
+  ""
 );
+
+async function discoverSubjectsFromGoogleSheet(){
+  if(!AUTO_DISCOVER_SUBJECTS) return SUBJECTS;
+  if(!DEFAULT_SHEET_ID){
+    throw new Error("config.js 尚未設定 googleSheet.sheetId。");
+  }
+  if(!GOOGLE_SHEETS_API_KEY){
+    throw new Error(
+      "已開啟自動讀取分頁，但尚未設定 googleSheet.apiKey。請先啟用 Google Sheets API 並填入瀏覽器 API Key。"
+    );
+  }
+
+  const fields = encodeURIComponent(
+    "properties.title,sheets.properties(sheetId,title,index,hidden,sheetType)"
+  );
+  const url =
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(DEFAULT_SHEET_ID)}` +
+    `?fields=${fields}&key=${encodeURIComponent(GOOGLE_SHEETS_API_KEY)}`;
+
+  const response = await fetch(url, {method:"GET", mode:"cors", cache:"no-store"});
+  if(!response.ok){
+    let detail = "";
+    try{
+      const errorJson = await response.json();
+      detail = errorJson?.error?.message || "";
+    }catch(_){}
+    throw new Error(`Google Sheets API 讀取分頁失敗（HTTP ${response.status}）${detail ? "：" + detail : ""}`);
+  }
+
+  const metadata = await response.json();
+  const discovered = (metadata.sheets || [])
+    .map(item => item && item.properties ? item.properties : {})
+    .filter(p =>
+      p.title &&
+      p.hidden !== true &&
+      (!p.sheetType || p.sheetType === "GRID") &&
+      !EXCLUDED_SHEET_NAMES.has(String(p.title).trim())
+    )
+    .sort((a, b) => Number(a.index || 0) - Number(b.index || 0))
+    .map((p, index) => normalizeSubjectConfig({
+      id: normalizeSubjectId(p.title, `sheet-${p.sheetId || index + 1}`),
+      storageKey: `sheet-${p.sheetId}`,
+      name: String(p.title).trim(),
+      sheetId: DEFAULT_SHEET_ID,
+      gid: String(p.sheetId),
+      sheetName: String(p.title).trim(),
+      description: `自動讀取分頁：${p.title}`,
+      enabled: true,
+      legacyKeyMode: false
+    }, index));
+
+  if(!discovered.length){
+    throw new Error("這份 Google Sheet 沒有可讀取的可見工作表分頁。");
+  }
+
+  SUBJECTS = makeUniqueSubjectList(discovered);
+  CONFIGURED_DEFAULT_SUBJECT_ID = normalizeSubjectId(
+    APP_CONFIG.googleSheet?.defaultSubjectId || SUBJECTS[0].id,
+    SUBJECTS[0].id
+  );
+  return SUBJECTS;
+}
 
 const TOTAL_SCORE = Number(APP_CONFIG.exam?.totalScore ?? 100);
 const PASS_SCORE = Number(APP_CONFIG.exam?.passScore ?? 70);
@@ -591,7 +673,7 @@ let auth = null;
 let db = null;
 let currentUser = null;
 let currentProfile = null;
-let activeSubject = SUBJECTS.find(subject => subject.id === CONFIGURED_DEFAULT_SUBJECT_ID) || SUBJECTS[0] || null;
+let activeSubject = null;
 let subjectSwitchInProgress = false;
 let bankLoadSequence = 0;
 let legacyWrongStatsMigrationChecked = new Set();
@@ -641,7 +723,7 @@ function renderSubjectInfo(message=""){
   box.innerHTML = `<b>目前科目：${escapeHtml(activeSubjectName())}</b>｜${escapeHtml(activeSubjectSheetLabel())}${description}${message ? `<br>${escapeHtml(message)}` : ""}`;
 }
 
-function renderSubjectOptions(){
+function renderSubjectOptions(preferredId=""){
   const select = $("subjectInput");
   if(!select) return;
   if(!SUBJECTS.length){
@@ -652,7 +734,7 @@ function renderSubjectOptions(){
     return;
   }
 
-  const savedId = normalizeSubjectId(localStorage.getItem("ai_exam_subject") || "", "");
+  const savedId = normalizeSubjectId(preferredId || localStorage.getItem("ai_exam_subject") || "", "");
   const preferred = SUBJECTS.find(subject => subject.id === savedId)
     || SUBJECTS.find(subject => subject.id === CONFIGURED_DEFAULT_SUBJECT_ID)
     || SUBJECTS[0];
@@ -2852,11 +2934,49 @@ $("clearScopesBtn").onclick = () => setAllScopes(false);
 $("countInput").onchange = syncCountInputByScope;
 $("subjectInput").onchange = e => changeSubject(e.target.value);
 
-initTheme();
-renderSubjectOptions();
-renderQuestionCountOptions();
-initFirebase();
-loadBank();
+async function initApplication(){
+  initTheme();
+  renderQuestionCountOptions();
+  initFirebase();
+
+  const subjectInfo = $("subjectInfo");
+  const loadMsg = $("loadMsg");
+  if(subjectInfo) subjectInfo.textContent = "正在讀取 Google Sheet 分頁清單...";
+  if(loadMsg) loadMsg.textContent = "正在讀取科目清單...";
+
+  try{
+    await discoverSubjectsFromGoogleSheet();
+    renderSubjectOptions();
+    renderSubjectInfo(`已自動找到 ${SUBJECTS.length} 個可見分頁。`);
+    await loadBank();
+  }catch(e){
+    console.error("自動讀取分頁失敗", e);
+
+    // 若有手動備援 subjects，仍讓系統可繼續運作。
+    SUBJECTS = buildManualSubjectList();
+    if(SUBJECTS.length && RAW_SUBJECTS.length){
+      renderSubjectOptions();
+      renderSubjectInfo(`自動讀取分頁失敗，已改用手動備援清單：${e.message}`);
+      await loadBank();
+      return;
+    }
+
+    activeSubject = null;
+    if($("subjectInput")){
+      $("subjectInput").innerHTML = `<option value="">無法取得科目清單</option>`;
+      $("subjectInput").disabled = true;
+    }
+    if(subjectInfo){
+      subjectInfo.innerHTML =
+        `<b>分頁清單讀取失敗：</b>${escapeHtml(e.message)}<br>` +
+        `請確認：試算表已設為知道連結者可檢視、Google Cloud 已啟用 Google Sheets API，且 config.js 已填入 googleSheet.apiKey。`;
+    }
+    if(loadMsg) loadMsg.textContent = "尚未載入題庫。";
+    if($("startBtn")) $("startBtn").disabled = true;
+  }
+}
+
+initApplication();
 </script>
 </body>
 </html>
